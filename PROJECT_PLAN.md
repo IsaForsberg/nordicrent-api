@@ -33,6 +33,16 @@
 - [ ] Status som ENUM: `confirmed`, `active`, `returned`, `cancelled`
 - [ ] Totalpriset beräknas från bokningsraderna
 - [ ] Samma artikel får aldrig dubbelbokas för överlappande datum
+- [ ] Tidpunkt när bokningen gjordes (sätts automatiskt)
+- [ ] Kopplad till en kund (1:N)
+
+### Bokningsrader (`booking_items`)
+- [ ] Egen tabell, kopplingstabell för N:M mellan bokningar och utrustning
+- [ ] `booking_item_id` som PK
+- [ ] `booking_id` FK → bokningar
+- [ ] `equipment_id` FK → utrustning
+- [ ] `UNIQUE KEY (booking_id, equipment_id)`
+- [ ] Dygnspriset som gällde vid bokningstillfället
 
 ### Tillståndsrapporter (MongoDB)
 - [ ] Skapas när personalen registrerar en återlämning
