@@ -65,10 +65,9 @@
 - [ ] **Steg 5, överlappskontroll:** `UNIQUE` räcker inte. 1–5 dec och 3–8 dec är olika datum men krockar ändå. Rita två intervall på en tidslinje och formulera villkoret för när de överlappar ("om ... och ..."). Det villkoret blir sedan ett `WHERE` i en SQL-fråga. Tänk också på kantdatum: om en bokning slutar 5 dec, kan nästa börja 5 dec? Gås igenom efter lektionen om underfrågor/transaktioner.
 - [x] Vad är en bokningsrad? Bokningar ↔ utrustning är **N:M**, kopplingstabellen `booking_items` (`booking_id` FK, `equipment_id` FK) = bokningsraderna. Kunden hänger på bokningen (1:N), inte på raden.
 - [x] `booking_items` får ett eget id som PK (MongoDB-rapporten kopplas till det id:t) + `UNIQUE KEY (booking_id, equipment_id)` så samma artikel inte står två gånger i samma bokning.
-- [x] Dygnspriset sparas på bokningsraden vid bokningstillfället, så gamla bokningar inte ändras när utrustningens pris ändras. **Förbered motivering till redovisningen:** varför är det inte dubbellagring som bryter mot 3NF?
+- [x] Dygnspriset sparas på bokningsraden vid bokningstillfället, så gamla bokningar inte ändras när utrustningens pris ändras. **Motivering till redovisningen (varför det inte är dubbellagring som bryter mot 3NF):** `booking_items` har priset som *gällde när kunden gjorde bokningen* (historik), `equipment` har *det aktuella priset* för artikeln. Det är två olika uppgifter, inte en kopia av samma, även om de råkar ha samma värde just när bokningen görs.
 - [x] Datumintervallet ligger på **bokningen**: uppgiften säger "en eller flera artiklar för ett datumintervall". Olika datum = två bokningar. Ger också bara ett intervall per bokning att kontrollera vid överlapp.
 - [x] PK i `booking_items` heter `booking_item_id` (`booking_id` är redan FK-kolumnen och PK i `bookings`).
-- [x] Svar till redovisningen om priset: `booking_items` har priset som *gällde vid bokningen* (historik), `equipment` har *aktuellt* pris. Två olika uppgifter, inte en kopia → bryter inte mot 3NF.
 - [ ] Hur ska regeln om dubbelbokning kontrolleras? Räcker ett villkor i tabellen?
 - [ ] MongoDB: vad betyder "schemaflexibel" och "nästlad", och hur ser ett rapportdokument ut?
 - [ ] Vad händer med en kunds gamla bokningar (returned/cancelled) om kunden tas bort? Vilket ON DELETE-beteende passar?
