@@ -1,13 +1,13 @@
 # NordicRent API
 
-Backend for NordicRent, a Scandinavian startup that rents out outdoor equipment (tents, kayaks, e-bikes, ski equipment) from depots in several cities. Customers book equipment for a date range, pick it up at a depot and return it. Staff register returns and write a condition report for each item.
+Backend for NordicRent, a Scandinavian startup that rents out outdoor equipment (tents, kayaks, e-bikes, ski equipment) from depots in several cities. Customers book equipment for a date range, pick it up at a depot and return it. Staff write condition reports for the equipment.
 
 The backend consists of:
-- a normalized **MySQL** database (customers, depots, categories, equipment, bookings, booking items)
-- a **REST API** in Node.js/Express on top of it
+- a normalized **MySQL** database (customers, depots, categories, equipment, bookings, booking lines)
+- a small **Node.js/Express** API that shows the database being used by an application
 - a **MongoDB** collection for condition reports
 
-> Final project in the course *Databashantering MySQL*, Backend Web Developer (YH).
+> Final project in the course *Databashantering MySQL*, Backend Web Developer (YH). The project will be developed further into NordicRent API v2 in the next course.
 
 ---
 
@@ -19,13 +19,21 @@ TODO
 
 TODO
 
+## Database settings
+
+TODO (application user, not root; see `.env.example`)
+
 ## Environment variables
 
 TODO (see `.env.example`)
 
-## Seeding the database
+## Starting and stopping
 
 TODO
+
+## Setting up and resetting the database
+
+TODO: how to run `database/setup.sql` and `database/seed.sql`, and how to reset the database (the seed must be re-runnable).
 
 The sample data in `database/seed.sql` was generated with the help of an AI tool. I have reviewed it and can explain it.
 
@@ -35,50 +43,16 @@ The sample data in `database/seed.sql` was generated with the help of an AI tool
 
 All endpoints exchange JSON.
 
-### Customers (`/api/customers`)
-
-| Method | Endpoint | Description |
+| Method | Endpoint | Database feature shown |
 |---|---|---|
-| GET | `/api/customers` | List customers (paginated, anonymized customers hidden) |
-| GET | `/api/customers/:id` | Get one customer |
-| POST | `/api/customers` | Create a customer |
-| PUT | `/api/customers/:id` | Update a customer |
-| DELETE | `/api/customers/:id` | Anonymize a customer (only without active bookings), see [Customer deletion](#customer-deletion-anonymization) |
-| GET | `/api/customers/:id/bookings` | The customer's booking history |
-
-### Equipment (`/api/equipment`)
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/api/equipment` | List equipment, filter by category, city and status |
-| GET | `/api/equipment/:id` | Get one item |
-| POST | `/api/equipment` | Add an item |
-| PUT | `/api/equipment/:id` | Update an item |
-| DELETE | `/api/equipment/:id` | Retire an item (sets status `retired`, the row is kept) |
-| GET | `/api/equipment/top-earners` | Items with rental revenue above the average per item |
-
-### Bookings (`/api/bookings`)
-
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/api/bookings` | Create a booking with items (transaction, `409` on overlap) |
-| GET | `/api/bookings/:id` | A booking with its items and equipment details |
-| PATCH | `/api/bookings/:id/return` | Register a return: update status and write condition report(s) to MongoDB |
-| PATCH | `/api/bookings/:id/cancel` | Cancel a confirmed booking |
-
-### Condition reports (`/api/reports`, MongoDB)
-
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/api/reports` | Create a condition report |
-| GET | `/api/reports/equipment/:equipmentId` | All reports for an item, newest first |
-| GET | `/api/reports/damaged` | All reports with the damage flag set |
-
-### Other
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/api/health` | Returns `{ "status": "ok" }` |
+| GET | `/api/equipment` | SELECT + JOIN (equipment, category, depot) |
+| POST | `/api/equipment` | Parameterized INSERT |
+| PUT | `/api/equipment/:id` | Parameterized UPDATE |
+| DELETE | `/api/equipment/:id` | Retires the item (sets status `retired`, the row is kept), see [Foreign keys](#foreign-keys-and-on-delete) |
+| POST | `/api/bookings` | MySQL transaction: booking + booking lines |
+| POST | `/api/reports` | Saves a condition report in MongoDB |
+| GET | `/api/reports/equipment/:id` | Gets the condition reports for an item from MongoDB |
+| GET | `/api/health` | Optional. Returns `{ "status": "ok" }` |
 
 ### Example requests (curl)
 
@@ -101,17 +75,17 @@ The data is split so that each table describes one thing and each piece of infor
 | `categories` | A separate entity with name and description. Many items belong to the same category, so the description is stored once instead of on every item. |
 | `equipment` | The physical items and their status. Linked to one depot (each depot has its own equipment) and one category (many items can share a category). |
 | `bookings` | What applies to the whole booking: customer, date range, status and when the booking was made. A customer can have many bookings, a booking has exactly one customer. |
-| `booking_items` | Connects bookings and equipment (N:M). Without it, a booking would have to contain its items, or an item its bookings. Now `equipment` is only about equipment and `bookings` only about the booking. |
+| `booking_lines` | Connects bookings and equipment (N:M). Without it, a booking would have to contain its items, or an item its bookings. Now `equipment` is only about equipment and `bookings` only about the booking. |
 
 TODO: describe which dependencies were eliminated (e.g. depot city stored in `depots`, not on every item).
 
-### Price stored on booking items
+### Price stored on booking lines
 
-`booking_items` stores the daily price that applied **when the booking was made**. `equipment` stores the **current** price. These are two different facts, not a copy of the same one, even if they have the same value at the moment of booking. This means old bookings do not change when prices change, and it does not break 3NF.
+`booking_lines` stores the daily price that applied **when the booking was made**. `equipment` stores the **current** price. These are two different facts, not a copy of the same one, even if they have the same value at the moment of booking. This means old bookings do not change when prices change, and it does not break 3NF.
 
 ### Total price is calculated, not stored
 
-`bookings` has no total price column. The total is calculated when it is read: the sum of the daily prices in `booking_items` × the number of days. A stored total would be derived from other columns and could get out of sync with the rows (for example if single items could be cancelled in the future). Without a total column it can never be wrong, and the schema stays in 3NF. The same calculation (price × days) is also used for `top-earners`.
+`bookings` has no total price column. The total is calculated when it is read: the sum of the daily prices in `booking_lines` × the number of days. A stored total would be derived from other columns and could get out of sync with the rows (for example if single items could be cancelled in the future). Without a total column it can never be wrong, and the schema stays in 3NF. The same calculation (price × days) is also used in the top earners query in `database/queries.sql`.
 
 ### Foreign keys and ON DELETE
 
@@ -120,34 +94,58 @@ TODO: describe which dependencies were eliminated (e.g. depot city stored in `de
 | `equipment.depot_id` | `depots` | RESTRICT | A depot with equipment cannot be deleted. If a depot closes, its equipment is moved first. |
 | `equipment.category_id` | `categories` | RESTRICT | A category cannot be deleted while items use it. |
 | `bookings.customer_id` | `customers` | RESTRICT | A booking cannot exist without a customer, and the booking history must be protected. Customers are anonymized instead of deleted. |
-| `booking_items.booking_id` | `bookings` | CASCADE | A booking item means nothing without its booking. |
-| `booking_items.equipment_id` | `equipment` | RESTRICT | Protects the booking history (totals are calculated from the rows). Items are retired instead of deleted. |
+| `booking_lines.booking_id` | `bookings` | CASCADE | A booking line means nothing without its booking. |
+| `booking_lines.equipment_id` | `equipment` | RESTRICT | Protects the booking history (totals are calculated from the rows). Items are retired instead of deleted, so `DELETE /api/equipment/:id` sets status `retired`. |
 
-### Customer deletion (anonymization)
+### Customer deletion policy
 
-`DELETE /api/customers/:id` does not remove the customer row.
+Customers are never deleted from the database, they are anonymized. This is why `bookings.customer_id` uses `ON DELETE RESTRICT`: the database itself protects the booking history.
 
-1. If the customer has active bookings (`confirmed` or `active`), the request is rejected with `409 Conflict`.
+1. A customer with active bookings (`confirmed` or `active`) cannot be removed.
 2. Otherwise the customer's personal data (name, email, phone) is removed and `deleted_at` is set. The row and the booking history are kept.
 
-Reason: deleting the row with `ON DELETE CASCADE` would also delete old bookings and change revenue statistics (e.g. top earners), and in a real company bookkeeping rules require financial records to be kept for several years. Anonymization removes the personal data (GDPR) but keeps the history correct. `bookings.customer_id` uses `ON DELETE RESTRICT` so the database itself protects the history. Anonymized customers are hidden from `GET /api/customers` (`WHERE deleted_at IS NULL`).
+Reason: deleting the row with `ON DELETE CASCADE` would also delete old bookings and change revenue statistics (e.g. top earners), and in a real company bookkeeping rules require financial records to be kept for several years. Anonymization removes the personal data (GDPR) but keeps the history correct.
 
-This solution was approved by the course teacher.
+This policy was approved by the course teacher. The customer API routes are not part of this course and are planned for API v2.
+
+### Backend and frontend
+
+TODO: one connection between the backend and the frontend.
 
 ---
 
+## SQL queries
+
+`database/queries.sql` contains the queries that show the SQL part of the project. They are run directly in MySQL and do not have their own API routes.
+
+TODO: for each query, what question it answers (nested queries, JOIN with three tables, GROUP BY).
+
 ## MySQL vs MongoDB
 
-TODO
+**What a condition report is.** A condition report is filled in after the customer has returned the items from a booking. The report contains the item's id (`equipmentId`), notes about any damage or other deviation (`notes`), a checklist to go through (`checklist`) and `damageFlag` to mark whether the item is damaged.
+
+**Why documents.** The reports look different depending on the item's category. For example, a tent has a checklist with canvas and tent pegs, and an e-bike has frame, tyres and battery health. We store the reports in MongoDB so that information that is not needed in a certain report can be left out. The report does not show `null`; information that should not be there is left out completely. If we add a new category, for example skis, MySQL would need a new table. In MongoDB we only create a new "template" and update the validation, and when the POST request is made, the report is created in MongoDB.
+
+**Why bookings stay in MySQL.** Bookings stay in MySQL because we need the booking dates, so the database knows what is rented out and when. A booking is also connected to `booking_lines` with foreign keys, which MongoDB cannot do towards MySQL. The booking and its lines are saved in a transaction: if anything fails, nothing is saved, all or nothing.
+
+**The trade-off.** MongoDB does not check by itself that the data matches what it should be, so we add validation in Express on the POST request. Without checks in the backend, any data could be sent to MongoDB, and a report with completely wrong information could be created. In MySQL the database is responsible for the structure, in MongoDB the backend is. Since `equipmentId` is not a foreign key, the backend first asks MySQL whether the item exists. If it does not, the backend responds with an error and nothing is saved in MongoDB.
 
 ## Transaction design
 
-TODO
+TODO: how `POST /api/bookings` creates a booking and its lines atomically, COMMIT and ROLLBACK, and how an obvious double booking is prevented.
+
+## Error handling
+
+TODO: how MySQL errors (e.g. duplicate entry, missing foreign key) are recognized and returned as JSON.
+
+## Object-oriented design
+
+TODO: a small code example (e.g. a class for database access) and why it helps.
 
 ## Security
 
-TODO
+TODO: application user instead of root, parameterized queries (`?`), `.env`.
 
-## Testing
+## Database tests
 
-See [`TESTPLAN.md`](TESTPLAN.md) and [`TESTLOG.md`](TESTLOG.md).
+See [`DATABASE_TESTS.md`](DATABASE_TESTS.md).
