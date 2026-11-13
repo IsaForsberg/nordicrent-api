@@ -35,7 +35,7 @@ TODO
 
 TODO: how to run `database/setup.sql` and `database/seed.sql`, and how to reset the database (the seed must be re-runnable).
 
-The sample data in `database/seed.sql` was generated with the help of an AI tool. I have reviewed it and can explain it.
+The sample data in `database/seed.sql` was generated with the help of an AI tool. I designed the structure of the data myself and gave clear instructions about what it should contain: how many depots, categories, equipment items and customers, how the bookings should be spread across the customers (one customer with four bookings, one with three, several with two, some with one) and which bookings should be finished, ongoing or planned. I then went through the data, ran it against the database and verified that it matches what I asked for.
 
 ---
 
