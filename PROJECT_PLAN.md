@@ -79,7 +79,7 @@
 - Checklistan beror på artikelns **kategori** (från `categories` i MySQL), inte på den enskilda artikeln. Cykel och elcykel kan vara samma kategori: en vanlig cykels rapport har då helt enkelt inget fält för batterihälsa.
 - Fält som inte behövs **utelämnas helt** i dokumentet. De står inte som `NULL` (som en tom kolumn i MySQL hade gjort).
 - Nästlat värde, t.ex. tältpinnar: `pinnar: { skick: "ok", antal: 7 }` (ett objekt inuti ett objekt).
-- Ny kategori (t.ex. skidor): i MySQL hade det krävt en ny tabell eller nya kolumner. I MongoDB ändras ingenting i databasen, bara valideringen i Express.
+- Ny kategori (t.ex. SUP-brädor; skidor finns redan i seed-datan sedan 2026-11-13): i MySQL hade checklistan krävt en ny tabell eller nya kolumner. I MongoDB ändras ingenting i databasen, bara valideringen i Express.
 - **Strukturen ("mallen") finns i Express, inte i MongoDB.** MongoDB sparar det den får. I MySQL ansvarar databasen för strukturen, i MongoDB ansvarar backend.
 - Validering vid `POST /api/reports`, troligen i `src/middleware/validate.js` (byggs i steg 6):
   - **Grund (krav):** `equipmentId` finns i MySQL (backend frågar MySQL först, eftersom det inte finns någon FK), `damageFlag` är true/false, `checklist` är ett objekt. Fel → svara med fel och spara inget.
@@ -222,7 +222,7 @@ Körs i MySQL och resultatet visas. De behöver **inga** egna API-rutter.
 - [x] MongoDB: vad betyder "schemaflexibel" och "nästlad", och hur ser ett rapportdokument ut? **Schemaflexibel** = varje dokument har bara de fält det behöver. **Nästlad** = ett värde kan vara ett objekt i sig. Checklistan passar dåligt i MySQL eftersom alla rader i en tabell har samma kolumner (många `NULL` eller en tabell per kategori). Se "Beslut och insikter" under Tillståndsrapporter.
 - [x] **Texten om MySQL vs MongoDB (steg 1):** skriven 2026-11-11 med mina egna formuleringar, översatt till README ("MySQL vs MongoDB"). Fyra stycken:
   1. Vad rapporten är
-  2. Varför dokument (olika fält per kategori, fält utelämnas, skidexemplet)
+  2. Varför dokument (olika fält per kategori, fält utelämnas, exemplet med en ny kategori: SUP-brädor, tidigare skidor)
   3. Varför bokningarna ligger i MySQL (datum för vad som är uthyrt och när, FK till `booking_lines`, transaktion: allt eller inget)
   4. Avvägningen (databasen stoppar inte fel data, backend validerar och kontrollerar `equipmentId` mot MySQL)
 - [ ] Att fundera på: artiklar raderas aldrig, de sätts till `retired`. Vad betyder det för rapporter som redan finns om en artikel? Kan de bli "föräldralösa"?
