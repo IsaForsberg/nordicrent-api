@@ -112,3 +112,8 @@ INSERT INTO booking_lines (booking_line_id, booking_id, equipment_id, daily_pric
     (20, 15, 1,  350.00),
     (21, 15, 2,  400.00),
     (22, 16, 5,  425.00);
+
+
+SELECT COUNT(*) FROM bookings;       -- 16
+SELECT COUNT(*) FROM booking_lines;  -- 22
+SELECT COUNT(*) FROM equipment;      -- 12

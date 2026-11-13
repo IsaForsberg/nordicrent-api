@@ -74,6 +74,9 @@ CREATE TABLE booking_lines (
     CONSTRAINT chk_booking_lines_daily_price CHECK (daily_price >= 0) 
 );
 
+-- App user for the Express API, with least privilege (no DELETE, no CREATE/ALTER/DROP).
+-- '12345' is a local development password only. Change it before any real installation.
+-- The real password must never be in the code: it belongs in .env, which is not committed to git.
 
 
 DROP USER IF EXISTS 'nordicrent_app_user'@'127.0.0.1';
