@@ -125,6 +125,10 @@
 
 ### Säkerhet
 - [ ] Skapa en applikationsanvändare med minsta möjliga behörighet
+  - **Beslut 2026-11-13:** användaren skapas **sist i `setup.sql`** (uppgiften räknar upp tre SQL-filer). `CREATE USER IF NOT EXISTS`, eftersom användare ligger utanför databasen och inte försvinner med `DROP DATABASE`.
+  - **Rättigheter: bara `SELECT`, `INSERT`, `UPDATE` på `nordicrent_api.*`.** Ingen av de 7 rutterna tar bort rader (`DELETE /api/equipment/:id` = `UPDATE` till `retired`), så `DELETE` behövs inte. Inga strukturändringar (`CREATE`, `ALTER`, `DROP`) och ingen `GRANT`.
+  - Appanvändaren är **appens** konto, inte en anställds eller utvecklarens. Utvecklaren använder root i Database Client.
+  - Att lösa: lösenordet står i `setup.sql` (hamnar i git) och i `.env` (hamnar inte i git).
 - [ ] Appen ansluter aldrig som root
 - [ ] `?`-parametrar för **alla** SQL-värden som kommer från API-anrop
 

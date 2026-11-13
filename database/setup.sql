@@ -73,3 +73,17 @@ CREATE TABLE booking_lines (
     UNIQUE KEY uq_booking_equipment(booking_id, equipment_id),
     CONSTRAINT chk_booking_lines_daily_price CHECK (daily_price >= 0) 
 );
+
+
+
+DROP USER IF EXISTS 'nordicrent_app_user'@'127.0.0.1';
+CREATE USER IF NOT EXISTS 'nordicrent_app_user'@'127.0.0.1'
+    IDENTIFIED BY '12345';
+
+GRANT SELECT, INSERT, UPDATE ON nordicrent_api.equipment TO 'nordicrent_app_user'@'127.0.0.1';
+GRANT SELECT ON nordicrent_api.categories TO 'nordicrent_app_user'@'127.0.0.1';
+GRANT SELECT ON nordicrent_api.depots TO 'nordicrent_app_user'@'127.0.0.1';
+GRANT SELECT, INSERT ON nordicrent_api.bookings TO 'nordicrent_app_user'@'127.0.0.1';
+GRANT SELECT, INSERT ON nordicrent_api.booking_lines TO 'nordicrent_app_user'@'127.0.0.1';
+
+SHOW GRANTS FOR 'nordicrent_app_user'@'127.0.0.1';
