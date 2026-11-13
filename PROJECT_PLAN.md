@@ -56,7 +56,7 @@
 
 ### Bokningsrader (`booking_lines`)
 - [ ] Egen tabell, kopplingstabell för N:M mellan bokningar och utrustning
-- [ ] `booking_line_id` som PK (se Öppna frågor: behövs den fortfarande?)
+- [ ] `booking_line_id` som PK (beslutat 2026-11-13, se Öppna frågor)
 - [ ] `booking_id` FK → bokningar
 - [ ] `equipment_id` FK → utrustning
 - [ ] `UNIQUE KEY (booking_id, equipment_id)`
@@ -206,7 +206,11 @@ Körs i MySQL och resultatet visas. De behöver **inga** egna API-rutter.
 - [ ] **Dubbelbokning (steg 5).** Kravet nu: en utrustning som *redan är uthyrd* får inte bokas. Att fundera på: räcker det att titta på `equipment.status`, eller ska du titta på datumen i bokningarna? Vad händer med en bokning som börjar nästa vecka, ska artikeln vara `rented` redan idag?
   - **Fördjupning (VG):** full kontroll av överlappande datum. `UNIQUE` räcker inte: 1–5 dec och 3–8 dec är olika datum men krockar ändå. Rita två intervall på en tidslinje och formulera villkoret för när de överlappar ("om ... och ..."). Det villkoret blir sedan ett `WHERE` i en SQL-fråga. Tänk också på kantdatum: om en bokning slutar 5 dec, kan nästa börja 5 dec?
 - [x] Vad är en bokningsrad? Bokningar ↔ utrustning är **N:M**, kopplingstabellen `booking_lines` (`booking_id` FK, `equipment_id` FK) = bokningsraderna. Kunden hänger på bokningen (1:N), inte på raden.
-- [ ] **`booking_line_id` som PK, behövs den fortfarande?** Ett av skälen var att MongoDB-rapporten skulle kopplas till det id:t. Nu kopplas rapporten till `equipmentId`. Finns det andra skäl att ha ett eget id på raden, eller räcker paret `(booking_id, equipment_id)` som PK? Båda går att försvara, men du ska kunna förklara ditt val.
+- [x] **`booking_line_id` som PK, behövs den fortfarande?** Beslut 2026-11-13: **ja, eget id (`booking_line_id`) + `UNIQUE (booking_id, equipment_id)`**. Det ursprungliga skälet (MongoDB-rapporten per bokningsrad) försvann när rapporten kopplades till `equipmentId`, men andra skäl finns kvar:
+  - En rad kan pekas ut med **ett** id, t.ex. för att avboka enstaka artiklar i en bokning (se Förbättringsförslag) eller söka på en rad.
+  - Samma mönster som alla andra tabeller i schemat (eget `_id`) och som lärarens `demo_loan_lines` från lektionen.
+  - Ändras regeln (två av samma artikel i en bokning) räcker det att ta bort `UNIQUE`, PK:n behöver inte bytas.
+  - **Att komma ihåg:** `UNIQUE`-paret måste finnas, annars skyddar inget mot dubbletter. Alternativet (paret som PK) hade skyddat med en enda regel, men gjort det krångligare att peka ut en rad.
 - [x] `UNIQUE KEY (booking_id, equipment_id)` så samma artikel inte står två gånger i samma bokning.
 - [x] Dygnspriset sparas på bokningsraden vid bokningstillfället, så gamla bokningar inte ändras när utrustningens pris ändras. **Motivering till redovisningen (varför det inte är dubbellagring som bryter mot 3NF):** `booking_lines` har priset som *gällde när kunden gjorde bokningen* (historik), `equipment` har *det aktuella priset* för artikeln. Det är två olika uppgifter, inte en kopia av samma, även om de råkar ha samma värde just när bokningen görs.
 - [x] Datumintervallet ligger på **bokningen**: uppgiften säger "en eller flera artiklar för ett datumintervall". Olika datum = två bokningar. Ger också bara ett intervall per bokning att kontrollera vid överlapp.

@@ -61,3 +61,15 @@ CREATE TABLE bookings (
     CONSTRAINT chk_booking_duration CHECK (end_date > start_date)
 );
 
+CREATE TABLE booking_lines (
+    booking_line_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    booking_id INT NOT NULL,
+    equipment_id INT NOT NULL,
+    daily_price DECIMAL(7,2) NOT NULL,
+    CONSTRAINT fk_booking_lines_booking FOREIGN KEY (booking_id)
+        REFERENCES bookings(booking_id) ON DELETE CASCADE,
+    CONSTRAINT fk_booking_lines_equipment FOREIGN KEY (equipment_id)
+        REFERENCES equipment(equipment_id) ON DELETE RESTRICT,
+    UNIQUE KEY uq_booking_equipment(booking_id, equipment_id),
+    CONSTRAINT chk_booking_lines_daily_price CHECK (daily_price >= 0) 
+);
