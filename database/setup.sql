@@ -49,3 +49,15 @@ CREATE TABLE customers (
     (first_name IS NOT NULL AND last_name IS NOT NULL AND email IS NOT NULL AND phone IS NOT NULL))
 );
 
+CREATE TABLE bookings (
+    booking_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    customer_id INT NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    status ENUM ('confirmed', 'active', 'returned', 'cancelled') NOT NULL DEFAULT 'confirmed',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_booking_customer FOREIGN KEY (customer_id)
+        REFERENCES customers(customer_id) ON DELETE RESTRICT,
+    CONSTRAINT chk_booking_duration CHECK (end_date > start_date)
+);
+
