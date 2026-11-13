@@ -56,4 +56,33 @@ WHERE per_customer.booking_count > (
 ORDER BY per_customer.booking_count DESC, name;
 
 
+-- 4. Nested SELECT (subqueries): top earners
+-- Question: Which equipment items have earned more rental income than the average item?
+-- Income for a booking line = daily_price on the line × number of days
+-- (DATEDIFF(end_date, start_date)). The price on the line is the price at the time of
+-- booking, so later price changes do not affect old income (see equipment 4).
+-- Only returned bookings are counted: confirmed bookings have not happened yet, active
+-- bookings are not finished, and cancelled bookings never earned anything.
+-- Equipment without any returned booking is not part of the average.
+-- equipment_id is shown because model names are not unique (equipment 1 and 3).
 
+SELECT per_equipment.equipment_id, e.model_name, per_equipment.revenue
+FROM (
+SELECT bl.equipment_id, SUM(bl.daily_price * DATEDIFF(b.end_date, b.start_date)) AS revenue
+FROM booking_lines AS bl 
+JOIN bookings AS b ON b.booking_id = bl.booking_id
+WHERE b.status = 'returned'
+GROUP BY bl.equipment_id
+) AS per_equipment
+JOIN equipment AS e ON e.equipment_id = per_equipment.equipment_id
+WHERE per_equipment.revenue > (
+    SELECT AVG(revenue_totals.revenue)
+    FROM(
+        SELECT bl.equipment_id, SUM(bl.daily_price * DATEDIFF(b.end_date, b.start_date)) AS revenue
+        FROM booking_lines AS bl 
+        JOIN bookings AS b ON b.booking_id = bl.booking_id
+        WHERE b.status = 'returned'
+        GROUP BY bl.equipment_id
+    ) AS revenue_totals
+)
+ORDER BY per_equipment.revenue DESC, e.model_name;
