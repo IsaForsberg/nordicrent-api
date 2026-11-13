@@ -5,19 +5,19 @@
 ```mermaid
 erDiagram
     customers ||--o{ bookings : "makes"
-    bookings ||--|{ booking_items : "contains"
-    equipment ||--o{ booking_items : "is included in"
+    bookings ||--|{ booking_lines : "contains"
+    equipment ||--o{ booking_lines : "is included in"
     depots ||--o{ equipment : "holds"
     categories ||--o{ equipment : "groups"
-    booking_items ||--o{ condition_reports : "MongoDB, linked by id (no FK)"
+    equipment ||--o{ condition_reports : "MongoDB, application reference (no FK)"
 
     customers {
         INT customer_id PK
-        VARCHAR first_name "NOT NULL"
-        VARCHAR last_name "NOT NULL"
+        VARCHAR first_name "NULL only if anonymized (CHECK)"
+        VARCHAR last_name "NULL only if anonymized (CHECK)"
         VARCHAR email UK "NULL only if anonymized (CHECK)"
-        VARCHAR phone "NULL only if anonymized?"
-        TODO deleted_at "NULL = active customer"
+        VARCHAR phone "NULL only if anonymized (CHECK)"
+        DATETIME deleted_at "NULL = active customer"
     }
 
     depots {
@@ -52,8 +52,8 @@ erDiagram
         TODO created_at "when the booking was made, DATE or with time?"
     }
 
-    booking_items {
-        INT booking_item_id PK
+    booking_lines {
+        INT booking_line_id PK "still needed? see PROJECT_PLAN"
         INT booking_id FK "ON DELETE CASCADE, UNIQUE together with equipment_id"
         INT equipment_id FK "ON DELETE RESTRICT, UNIQUE together with booking_id"
         DECIMAL daily_price "price at the time of booking"
@@ -61,14 +61,16 @@ erDiagram
 
     condition_reports {
         TODO _id PK "created automatically by MongoDB"
-        INT booking_item_id "points to booking_items, not a real FK"
+        INT equipmentId "points to equipment, not a real FK"
         TODO notes "free text"
         TODO checklist "nested object, differs per category"
-        TODO photo_urls "list of URLs"
-        TODO damaged "damage flag"
+        TODO damageFlag "damage flag"
+        TODO photoUrls "optional, list of URLs"
     }
 ```
 
-The total price is not stored as a column. It is calculated from `booking_items.daily_price` × number of days (`end_date` − `start_date`).
+The total price is not stored as a column. It is calculated from `booking_lines.daily_price` × number of days (`end_date` − `start_date`).
+
+The short text about 3NF, relationships, the MongoDB choice and the transaction is in the [README](../README.md#database-design).
 
 For the submission, the diagram must be exported as an image or PDF.

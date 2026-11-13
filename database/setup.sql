@@ -37,3 +37,15 @@ CREATE TABLE categories
     CONSTRAINT chk_equipment_daily_price CHECK (daily_price >= 0)       
  );
 
+CREATE TABLE customers (
+    customer_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    first_name VARCHAR(50),
+    last_name VARCHAR(50),
+    email VARCHAR(80) UNIQUE,
+    phone VARCHAR(20),
+    deleted_at DATETIME, -- NULL = active customer, a date = anonymized
+    CONSTRAINT chk_customer_personal_data 
+    CHECK (deleted_at IS NOT NULL OR
+    (first_name IS NOT NULL AND last_name IS NOT NULL AND email IS NOT NULL AND phone IS NOT NULL))
+);
+

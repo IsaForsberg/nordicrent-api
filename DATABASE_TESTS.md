@@ -7,6 +7,7 @@ Three database tests that were run against MySQL. Each test describes what is te
 | DB-01 | Read with JOIN | | |
 | DB-02 | Constraint error | 2026-11-13 (SQL part) | Pass |
 | DB-03 | Rollback without half-finished booking lines | | |
+| DB-04 (extra) | Anonymization: CHECK + UNIQUE with NULL on `customers` | 2026-11-13 | Pass |
 
 ---
 
@@ -53,7 +54,7 @@ SELECT * FROM equipment;
 3. The insert succeeds: one row, `status` = `available` (default).
 
 **Actual result (SQL, 2026-11-13):**
-1. Rejected: `Check constraint 'chk_equipment_daily_price' is violated.` Database Client showed only the message, not the error code. According to the MySQL documentation this error is `ER_CHECK_CONSTRAINT_VIOLATED`, code 3819 (not yet confirmed with `SHOW ERRORS`).
+1. Rejected: `Check constraint 'chk_equipment_daily_price' is violated.` Database Client showed only the message, not the error code. The code is 3819 (`ER_CHECK_CONSTRAINT_VIOLATED`). This was confirmed with `SHOW ERRORS` on 2026-11-13 during a test of the CHECK constraint on `customers`, which gives the same error type for every violated CHECK.
 2. `equipment` was empty.
 3. The row was saved with `equipment_id` 1 and `status` = `available`.
 
@@ -70,3 +71,60 @@ SELECT * FROM equipment;
 **Expected result:** TODO (what should exist in `bookings` and `booking_lines` afterwards)
 
 **Actual result:** *not run yet*
+
+---
+
+## DB-04 (extra): Anonymization rules on `customers`
+
+**What is tested:** Customers are anonymized instead of deleted. When that happens, `first_name`, `last_name`, `email` and `phone` are set to `NULL` and `deleted_at` gets a date and time. Two rules make that possible:
+
+- The CHECK constraint `chk_customer_personal_data` (`deleted_at IS NOT NULL OR (all four personal fields IS NOT NULL)`): an **active** customer (`deleted_at` is `NULL`) must have all four personal fields, while an anonymized customer may have them all as `NULL`.
+- `email` is `UNIQUE` but nullable. MySQL allows several `NULL` values in a `UNIQUE` column, so more than one customer can be anonymized.
+
+**How it is run:** After a fresh run of `database/setup.sql`, in Database Client, one statement at a time:
+
+```sql
+-- 1. Active customer with all personal data (should succeed)
+INSERT INTO customers (first_name, last_name, email, phone)
+VALUES ('Anna', 'Andersson', 'anna.andersson@example.com', '070-123 45 67');
+
+-- 2. Active customer without phone (should fail)
+INSERT INTO customers (first_name, last_name, email)
+VALUES ('Erik', 'Berg', 'erik.berg@example.com');
+
+SHOW ERRORS;
+
+-- 3. Anonymized customer, all personal fields NULL (should succeed)
+INSERT INTO customers (deleted_at)
+VALUES ('2026-11-13 14:30:00');
+
+-- 4. A second anonymized customer, email also NULL (should succeed: UNIQUE allows several NULL)
+INSERT INTO customers (deleted_at)
+VALUES ('2026-11-13 15:00:00');
+
+-- 5. All rows
+SELECT * FROM customers;
+
+-- 6. Only active customers, with the name combined
+SELECT customer_id, CONCAT(first_name, ' ', last_name) AS name, email
+FROM customers
+WHERE deleted_at IS NULL;
+```
+
+**Expected result:**
+1. The row is saved.
+2. The row is rejected with error 3819, a check constraint violation.
+3. The row is saved.
+4. The row is saved, even though another customer already has `email` = `NULL`.
+5. Three rows: Anna and two anonymized customers. Erik does not exist.
+6. Only Anna, with `name` = `Anna Andersson`.
+
+**Actual result (2026-11-13):**
+1. Saved, `customer_id` 1.
+2. Rejected with error 3819 (`SHOW ERRORS`). At the time of the test the constraint was named `chk_customer_isactive`. It has since been renamed to `chk_customer_personal_data`, and the rule itself is unchanged.
+3. Saved, `customer_id` 2.
+4. Saved, `customer_id` 3.
+5. Three rows. Rows 2 and 3 have `NULL` in all four personal fields and a value in `deleted_at`. Anna is unchanged.
+6. Only Anna.
+
+**Not covered yet:** the CHECK still allows a half-finished anonymization, where `deleted_at` is set but some personal data is left. The anonymization itself (an `UPDATE` through the API) belongs to API v2.

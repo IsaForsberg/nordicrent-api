@@ -24,6 +24,9 @@
 - [ ] Tabell för kunder med id, namn, e-post och telefonnummer
 - [ ] E-post är unik
 - [ ] `deleted_at` för anonymiserade kunder (se Öppna frågor)
+- [ ] Namn i två kolumner: `first_name` + `last_name` (slås ihop med `CONCAT(...) AS name` när de ska visas)
+- [ ] **Personuppgifter** = `first_name`, `last_name`, `email`, `phone`. De får **inte** vara `NOT NULL`, eftersom alla fyra sätts till `NULL` vid anonymisering.
+- [ ] Ett `CHECK`: om `deleted_at` är `NULL` (aktiv kund) måste alla fyra personuppgifter vara ifyllda
 
 ### Depåer (`depots`)
 - [ ] Tabell för depåer med id, namn, stad och adress
@@ -228,11 +231,11 @@ Körs i MySQL och resultatet visas. De behöver **inga** egna API-rutter.
   4. Dokumentera tydligt i README varför lösningen valts.
   - **Viktigt enligt läraren:** anonymiseringen måste verkligen ta bort personuppgifterna, så att kunden inte går att identifiera genom det som finns kvar.
   - [x] "Aktiva" bokningar = `confirmed` + `active` (bokningar som inte är avslutade). `returned` + `cancelled` = avslutade, och då får kunden anonymiseras.
-  - [ ] Att fundera på: finns det något mer än namn, e-post och telefon som kan identifiera kunden efter anonymiseringen?
+  - [x] **Vilka uppgifter tas bort vid anonymisering?** Beslut 2026-11-13: **förnamn, efternamn, e-post och telefon** sätts alla till `NULL`. Samma regel för alla fyra: de krävs bara så länge kunden är aktiv. Därför `NULL` och inte en ersättningstext som `'Deleted'`: e-posten är `UNIQUE`, så två kunder kan inte få samma ersättningstext, och med `NULL` räcker ett enda `CHECK` för alla fyra.
   - [x] Motiveringen ligger i README under "Customer deletion policy". Granskas igen i steg 7.
-  - [x] E-post vid anonymisering: sätts till `NULL`. `UNIQUE` ligger kvar, eftersom MySQL tillåter flera `NULL` i en `UNIQUE`-kolumn (NULL är "okänt" och två okända räknas inte som lika). E-posten får alltså inte vara `NOT NULL`. I stället ett `CHECK`-villkor: e-post måste vara ifylld *om inte* kunden är borttagen (`deleted_at`). Testa NULL+UNIQUE i en testtabell först. Samma resonemang för telefon?
+  - [x] E-post vid anonymisering: sätts till `NULL`. `UNIQUE` ligger kvar, eftersom MySQL tillåter flera `NULL` i en `UNIQUE`-kolumn (NULL är "okänt" och två okända räknas inte som lika). E-posten får alltså inte vara `NOT NULL`. I stället ett `CHECK`-villkor: e-post måste vara ifylld *om inte* kunden är borttagen (`deleted_at`). Testa NULL+UNIQUE i en testtabell först. Telefon: **ja**, samma regel (beslut 2026-11-13).
   - [x] Ny kolumn `deleted_at` i `customers`: tom (`NULL`) = aktiv kund, ett datum = när kunden togs bort.
-  - [ ] Att fundera på: vilken datatyp och vilket standardvärde ska `deleted_at` ha?
+  - [x] Datatyp för `deleted_at`: **`DATETIME`** (beslut 2026-11-13), samma typ som `created_at` i `bookings`, så att tidpunkterna är konsekventa. Inget `DEFAULT` behövs: en kolumn utan `NOT NULL` blir `NULL` om inget värde anges, och `NULL` = aktiv kund.
 
 ---
 
