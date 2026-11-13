@@ -8,6 +8,8 @@ Three database tests that were run against MySQL. Each test describes what is te
 | DB-02 | Constraint error | 2026-11-13 (SQL part) | Pass |
 | DB-03 | Rollback without half-finished booking lines | | |
 | DB-04 (extra) | Anonymization: CHECK + UNIQUE with NULL on `customers` | 2026-11-13 | Pass |
+| DB-05 (extra) | Constraints on `bookings`: duration CHECK, FK on insert, RESTRICT on delete | 2026-11-13 | Pass |
+| DB-06 (extra) | Constraints on `booking_lines`: UNIQUE pair, RESTRICT and CASCADE | 2026-11-13 | Pass |
 
 ---
 
@@ -128,3 +130,32 @@ WHERE deleted_at IS NULL;
 6. Only Anna.
 
 **Not covered yet:** the CHECK still allows a half-finished anonymization, where `deleted_at` is set but some personal data is left. The anonymization itself (an `UPDATE` through the API) belongs to API v2.
+
+---
+
+## DB-05 (extra): Constraints on `bookings`
+
+Run 2026-11-13 after a fresh `setup.sql`, with one customer (`customer_id` 1) inserted first. Error codes read with `SHOW ERRORS`.
+
+| # | Statement | Expected | Actual |
+|---|---|---|---|
+| 1 | Booking 2026-12-01 → 2026-12-03 for customer 1 | Saved, `status` = `confirmed`, `created_at` set automatically | Saved as expected |
+| 2 | Booking 2026-12-01 → 2026-12-01 (same day) | Rejected by `chk_booking_duration` | Error 3819 |
+| 3 | Booking 2026-12-05 → 2026-12-01 (end before start) | Rejected by `chk_booking_duration` | Rejected |
+| 4 | Booking for `customer_id` 999 (does not exist) | Rejected by `fk_booking_customer` | Error 1452 |
+| 5 | `DELETE FROM customers WHERE customer_id = 1` (has a booking) | Rejected by `ON DELETE RESTRICT` | Error 1451 |
+
+Afterwards `bookings` contained one row and customer 1 was still there.
+
+---
+
+## DB-06 (extra): Constraints on `booking_lines`
+
+Run 2026-11-13 after a fresh `setup.sql`, with one depot, one category, two equipment items (id 1 and 2), one customer and one booking (`booking_id` 1) inserted first. Error codes read with `SHOW ERRORS`.
+
+| # | Statement | Expected | Actual |
+|---|---|---|---|
+| 1 | Two lines on booking 1: equipment 1 and equipment 2 | Both saved | Saved |
+| 2 | Equipment 1 on booking 1 a second time | Rejected by `uq_booking_equipment` | Error 1062 |
+| 3 | `DELETE FROM equipment WHERE equipment_id = 1` (used on a booking line) | Rejected by `ON DELETE RESTRICT` | Error 1451 |
+| 4 | `DELETE FROM bookings WHERE booking_id = 1` | Booking deleted; its lines deleted by `ON DELETE CASCADE`; equipment untouched | `bookings` and `booking_lines` empty, both equipment items still there |
