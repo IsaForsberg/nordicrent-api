@@ -90,7 +90,7 @@
 - [ ] Schemat är i 3NF
 - [ ] Kort text om 3NF, relationer, MongoDB-val och transaktion (lämnas in tillsammans med ER-diagrammet)
 - [ ] Förklara minst **ett eget normaliseringsval** (kandidater: prissnapshot på bokningsraden, eller totalpriset som beräknas i stället för att lagras)
-- [ ] Förklara **ett samband mellan backend och frontend** (otydligt i uppgiften, fråga läraren vad som menas)
+- [ ] Förklara **ett samband mellan backend och frontend** i texten till ER-diagrammet: JOIN som gör om `category_id`/`depot_id` till namn i JSON-svaret (se Öppna frågor, besvarat av läraren 2026-11-13)
 
 ### Tabeller och villkor
 - [ ] Lämpliga datatyper för varje kolumn
@@ -215,7 +215,12 @@ Körs i MySQL och resultatet visas. De behöver **inga** egna API-rutter.
   3. Varför bokningarna ligger i MySQL (datum för vad som är uthyrt och när, FK till `booking_lines`, transaktion: allt eller inget)
   4. Avvägningen (databasen stoppar inte fel data, backend validerar och kontrollerar `equipmentId` mot MySQL)
 - [ ] Att fundera på: artiklar raderas aldrig, de sätts till `retired`. Vad betyder det för rapporter som redan finns om en artikel? Kan de bli "föräldralösa"?
-- [ ] **Backend ↔ frontend:** fråga skickad till läraren 2026-11-11 (JOIN-exemplet med category_id/depot_id → namn, eller checklistefält per kategori? kommentar i setup.sql eller i texten?), väntar på svar. Ursprunglig fråga: fråga läraren vad "ett samband mellan backend och frontend" i setup.sql-kravet betyder. Möjlig tolkning: en frontend skulle behöva veta vilka checklistefält som ska visas per kategori (pinnar, batterihälsa …), och det är backend som har den kunskapen.
+- [x] **Backend ↔ frontend:** ✅ Svar från läraren 2026-11-13:
+  - **JOIN-exemplet är rätt.** `equipment` lagrar bara `category_id` och `depot_id` (siffror), men en frontend vill visa "Kajak" och "Umeå". Backend hämtar namnen med JOIN mot `categories` och `depots` och skickar tillbaka JSON som frontend kan visa.
+  - **MongoDB-exemplet** (checklistefält per kategori) fungerar också, men behövs inte. Gör det inte mer komplicerat än nödvändigt.
+  - **Var:** en kort förklaring i texten som lämnas in med ER-diagrammet, **inte** som kommentar i `setup.sql`.
+  - **Ingen frontend** ska byggas. Läraren testar API-anropen i terminalen (curl). Det räcker att visa att backend hämtar rätt information och svarar med JSON.
+  - Att fundera på: vilken av de 7 rutterna visar sambandet, och vilka tabeller och kolumner behöver frågan? Kan visas live med curl på redovisningen.
 - [x] Vad händer med en kunds gamla bokningar om kunden tas bort? **Beslut: RESTRICT + anonymisering.** ✅ Godkänt av läraren 2026-11-05. Det finns ingen kundrutt i den nya uppgiften, så anonymiseringen byggs **inte** som rutt nu (sparad till API v2, se nedan). Den används fortfarande som **motivering** till `ON DELETE RESTRICT` på `bookings.customer_id` och till kolumnen `deleted_at`. Villkoren från läraren:
   1. Kontrollera först att kunden inte har några aktiva bokningar.
   2. Finns aktiva bokningar nekas borttagningen (`409`).
