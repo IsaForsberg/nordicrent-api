@@ -1,18 +1,23 @@
 # NordicRent — Projektplan
 
-**Presentation:** 2026-11-20 · **Inlämning:** 2026-11-22 · **Mål:** VG
+**Presentation:** 2026-11-19 (torsdag) · **Inlämning:** 2026-11-22 · **Mål:** VG
 
 > Uppdaterad 2026-11-09 efter lärarens nya version av uppgiften. Den nya versionen har färre API-rutter och fokuserar på databasen: SQL, transaktion, databasprov och MongoDB. Det som inte längre krävs finns under [Sparat till API v2](#sparat-till-api-v2-nästa-kurs).
+>
+> **Senast uppdaterad 2026-11-14 (lördag kväll):** steg 1–4 klara (utom ER-export och OOP-klassen). Nästa: steg 5, bokningstransaktionen.
 
 ---
 
 ## Roadmap (uppgiftens 7 steg)
 
-- [ ] **Steg 1 – Planera datamodellen:** ER-diagram, samband, 3NF, vad som ska ligga i MongoDB
-- [ ] **Steg 2 – Implementera MySQL:** `setup.sql` + `seed.sql`, testa constraints och JOINs, installationen går att köra om
-- [ ] **Steg 3 – Visa SQL-kunskaper:** `database/queries.sql` med nästlade frågor, JOIN och GROUP BY, och en förklaring av vad varje fråga svarar på
-- [ ] **Steg 4 – Express-koppling:** starta servern, anslut med `mysql2`, bygg de fyra utrustningsrutterna med `?`-parametrar
-- [ ] **Steg 5 – Bokningstransaktionen:** `POST /api/bookings` som riktig transaktion, visa att rollback tar bort alla delresultat
+- [x] **Steg 1 – Planera datamodellen:** ER-diagram, samband, 3NF, vad som ska ligga i MongoDB
+  - [ ] Kvar: exportera ER-diagrammet till bild/PDF + skriva den korta texten (3NF, relationer, MongoDB-val, transaktion, backend↔frontend)
+- [x] **Steg 2 – Implementera MySQL:** `setup.sql` + `seed.sql`, testa constraints och JOINs, installationen går att köra om (`setup.sql` → `seed.sql` återställer allt)
+- [x] **Steg 3 – Visa SQL-kunskaper:** `database/queries.sql` med 4 frågor (JOIN 3 tabeller, GROUP BY, 2 nästlade) + kommentarer om vad varje fråga svarar på
+  - [ ] Kvar: fråga läraren hur resultaten ska "visas" (skärmdump, text i README eller kommentar i filen?)
+- [x] **Steg 4 – Express-koppling:** servern startar, ansluter med `mysql2` som appanvändaren, alla fyra utrustningsrutterna klara med `?`-parametrar, validering och felhantering (2026-11-14)
+  - [ ] Kvar: OOP-klassen `EquipmentRepository` (flytta SQL:en från `server.js` till metoder i klassen)
+- [ ] **Steg 5 – Bokningstransaktionen:** `POST /api/bookings` som riktig transaktion, visa att rollback tar bort alla delresultat ← **NÄSTA (söndag 15/11)**
 - [ ] **Steg 6 – MongoDB:** spara och läsa tillståndsrapporter via de två rapportrutterna, motivera varför de passar som dokument
 - [ ] **Steg 7 – Kontroll och presentation:** tre databasprov i `DATABASE_TESTS.md`, README med start/stopp och databasinställningar, träna på att förklara SQL- och dataval
 
@@ -21,46 +26,46 @@
 ## Domänen
 
 ### Kunder (`customers`)
-- [ ] Tabell för kunder med id, namn, e-post och telefonnummer
-- [ ] E-post är unik
-- [ ] `deleted_at` för anonymiserade kunder (se Öppna frågor)
-- [ ] Namn i två kolumner: `first_name` + `last_name` (slås ihop med `CONCAT(...) AS name` när de ska visas)
-- [ ] **Personuppgifter** = `first_name`, `last_name`, `email`, `phone`. De får **inte** vara `NOT NULL`, eftersom alla fyra sätts till `NULL` vid anonymisering.
-- [ ] Ett `CHECK`: om `deleted_at` är `NULL` (aktiv kund) måste alla fyra personuppgifter vara ifyllda
+- [x] Tabell för kunder med id, namn, e-post och telefonnummer
+- [x] E-post är unik
+- [x] `deleted_at` för anonymiserade kunder (se Öppna frågor)
+- [x] Namn i två kolumner: `first_name` + `last_name` (slås ihop med `CONCAT(...) AS name` när de ska visas)
+- [x] **Personuppgifter** = `first_name`, `last_name`, `email`, `phone`. De får **inte** vara `NOT NULL`, eftersom alla fyra sätts till `NULL` vid anonymisering.
+- [x] Ett `CHECK`: om `deleted_at` är `NULL` (aktiv kund) måste alla fyra personuppgifter vara ifyllda
 
 ### Depåer (`depots`)
-- [ ] Tabell för depåer med id, namn, stad och adress
-- [ ] Relation depå → utrustning är 1:N
-- [ ] En artikel tillhör exakt en depå åt gången
+- [x] Tabell för depåer med id, namn, stad och adress
+- [x] Relation depå → utrustning är 1:N
+- [x] En artikel tillhör exakt en depå åt gången
 
 ### Kategorier (`categories`)
-- [ ] Egen tabell för kategorier (inte fritext)
-- [ ] Varje kategori har namn och beskrivning
-- [ ] `category_id` som PK (inte namnet, så ett namnbyte bara ändrar en rad), namnet `UNIQUE` + `NOT NULL`
+- [x] Egen tabell för kategorier (inte fritext)
+- [x] Varje kategori har namn och beskrivning
+- [x] `category_id` som PK (inte namnet, så ett namnbyte bara ändrar en rad), namnet `UNIQUE` + `NOT NULL`
 
 ### Utrustning (`equipment`)
-- [ ] Tabell för utrustning med id, kategori, modellnamn, dygnspris och inköpsdatum
-- [ ] Status som ENUM: `available`, `rented`, `maintenance`, `retired`
-- [ ] Kopplad till en kategori
-- [ ] Kopplad till en depå
+- [x] Tabell för utrustning med id, kategori, modellnamn, dygnspris och inköpsdatum
+- [x] Status som ENUM: `available`, `rented`, `maintenance`, `retired`
+- [x] Kopplad till en kategori
+- [x] Kopplad till en depå
 
 ### Bokningar (`bookings`)
-- [ ] En kund kan ha flera bokningar
-- [ ] En bokning gäller ett datumintervall (start och slut)
-- [ ] En bokning kan innehålla en eller flera artiklar (bokningsrader)
-- [ ] Status som ENUM: `confirmed`, `active`, `returned`, `cancelled`
-- [ ] Totalpriset beräknas från bokningsraderna (lagras **inte** som kolumn, räknas fram med en fråga: dygnspris från `booking_lines` × antal dygn)
+- [x] En kund kan ha flera bokningar
+- [x] En bokning gäller ett datumintervall (start och slut)
+- [x] En bokning kan innehålla en eller flera artiklar (bokningsrader)
+- [x] Status som ENUM: `confirmed`, `active`, `returned`, `cancelled`
+- [x] Totalpriset beräknas från bokningsraderna (lagras **inte** som kolumn, räknas fram med en fråga: dygnspris från `booking_lines` × antal dygn)
 - [ ] En utrustning som redan är uthyrd får inte bokas igen (krav). Full kontroll av överlappande datum = fördjupning (VG), se Öppna frågor.
-- [ ] Tidpunkt när bokningen gjordes (sätts automatiskt)
-- [ ] Kopplad till en kund (1:N)
+- [x] Tidpunkt när bokningen gjordes (sätts automatiskt)
+- [x] Kopplad till en kund (1:N)
 
 ### Bokningsrader (`booking_lines`)
-- [ ] Egen tabell, kopplingstabell för N:M mellan bokningar och utrustning
-- [ ] `booking_line_id` som PK (beslutat 2026-11-13, se Öppna frågor)
-- [ ] `booking_id` FK → bokningar
-- [ ] `equipment_id` FK → utrustning
-- [ ] `UNIQUE KEY (booking_id, equipment_id)`
-- [ ] Dygnspriset som gällde vid bokningstillfället
+- [x] Egen tabell, kopplingstabell för N:M mellan bokningar och utrustning
+- [x] `booking_line_id` som PK (beslutat 2026-11-13, se Öppna frågor)
+- [x] `booking_id` FK → bokningar
+- [x] `equipment_id` FK → utrustning
+- [x] `UNIQUE KEY (booking_id, equipment_id)`
+- [x] Dygnspriset som gällde vid bokningstillfället
 
 ### Tillståndsrapporter (MongoDB)
 - [ ] Rapporten gäller en **utrustning**: `equipmentId` (inte bokningsraden längre)
@@ -81,7 +86,7 @@
 - Nästlat värde, t.ex. tältpinnar: `pinnar: { skick: "ok", antal: 7 }` (ett objekt inuti ett objekt).
 - Ny kategori (t.ex. SUP-brädor; skidor finns redan i seed-datan sedan 2026-11-13): i MySQL hade checklistan krävt en ny tabell eller nya kolumner. I MongoDB ändras ingenting i databasen, bara valideringen i Express.
 - **Strukturen ("mallen") finns i Express, inte i MongoDB.** MongoDB sparar det den får. I MySQL ansvarar databasen för strukturen, i MongoDB ansvarar backend.
-- Validering vid `POST /api/reports`, troligen i `src/middleware/validate.js` (byggs i steg 6):
+- Validering vid `POST /api/reports`, i `src/validation.js` (`validReport` finns som utkast, byggs klart i steg 6):
   - **Grund (krav):** `equipmentId` finns i MySQL (backend frågar MySQL först, eftersom det inte finns någon FK), `damageFlag` är true/false, `checklist` är ett objekt. Fel → svara med fel och spara inget.
   - **Fördjupning (VG, om tid finns):** hämta artikelns kategori med JOIN och kontrollera att checklistan har rätt fält för kategorin.
 
@@ -90,18 +95,19 @@
 ## MySQL-delen
 
 ### Normalisering (3NF)
-- [ ] Schemat är i 3NF
+- [x] Schemat är i 3NF
 - [ ] Kort text om 3NF, relationer, MongoDB-val och transaktion (lämnas in tillsammans med ER-diagrammet)
 - [ ] Förklara minst **ett eget normaliseringsval** (kandidater: prissnapshot på bokningsraden, eller totalpriset som beräknas i stället för att lagras)
 - [ ] Förklara **ett samband mellan backend och frontend** i texten till ER-diagrammet: JOIN som gör om `category_id`/`depot_id` till namn i JSON-svaret (se Öppna frågor, besvarat av läraren 2026-11-13)
 
 ### Tabeller och villkor
-- [ ] Lämpliga datatyper för varje kolumn
-- [ ] `PRIMARY KEY` i varje tabell
-- [ ] `FOREIGN KEY` med genomtänkt `ON DELETE`-beteende (motivera varje)
-- [ ] `UNIQUE`-villkor där det behövs
-- [ ] `NOT NULL` där det behövs
-- [ ] Standardvärden (`DEFAULT`) där det passar
+- [x] Lämpliga datatyper för varje kolumn
+- [x] `PRIMARY KEY` i varje tabell
+- [x] `FOREIGN KEY` med genomtänkt `ON DELETE`-beteende (motivera varje)
+- [x] `UNIQUE`-villkor där det behövs
+- [x] `NOT NULL` där det behövs
+- [x] Standardvärden (`DEFAULT`) där det passar
+- [x] `CHECK`-villkor: `chk_equipment_daily_price`, `chk_customer_personal_data`, `chk_booking_duration`, `chk_booking_lines_daily_price`
 
 ### Främmande nycklar och ON DELETE
 | FK | Pekar på | ON DELETE | Motivering |
@@ -113,22 +119,23 @@
 | `booking_lines.equipment_id` | `equipment` | RESTRICT | Skyddar bokningshistoriken (totalen räknas från raderna). Artiklar raderas inte: `DELETE /api/equipment/:id` sätter status `retired` i stället ("avveckling enligt din FK-policy" i uppgiften). |
 
 ### Leverabler
-- [ ] `database/setup.sql` skapar hela schemat
-- [ ] `database/seed.sql` med exempeldata:
-  - [ ] minst 2 depåer
-  - [ ] minst 3 kategorier
-  - [ ] minst 8 utrustningsposter
-  - [ ] minst 3 kunder
-  - [ ] minst 3 bokningar med bokningsrader
-- [ ] Seed-filen går att **köra om** (eller så beskrivs tydligt hur databasen återställs). Att fundera på: vad händer om du kör `seed.sql` två gånger i rad idag?
+- [x] `database/setup.sql` skapar hela schemat
+- [x] `database/seed.sql` med exempeldata:
+  - [x] minst 2 depåer (3)
+  - [x] minst 3 kategorier (4)
+  - [x] minst 8 utrustningsposter (12)
+  - [x] minst 3 kunder (8, varav 1 anonymiserad)
+  - [x] minst 3 bokningar med bokningsrader (16 bokningar, 22 rader)
+- [x] Seed-filen går att **köra om** via återställning: `setup.sql` (gör `DROP DATABASE`) och sedan `seed.sql`. `seed.sql` två gånger i rad utan setup ger dubblett-fel (1062), eftersom id:na skrivs ut. Beskrivs i README (TODO "Setting up and resetting").
 - [ ] Seed-datan tas fram med AI-hjälp. Det redovisas i README, och jag ska förstå och kunna förklara datan.
 
 ### Säkerhet
-- [ ] Skapa en applikationsanvändare med minsta möjliga behörighet
-  - **Beslut 2026-11-13:** användaren skapas **sist i `setup.sql`** (uppgiften räknar upp tre SQL-filer). `CREATE USER IF NOT EXISTS`, eftersom användare ligger utanför databasen och inte försvinner med `DROP DATABASE`.
-  - **Rättigheter: bara `SELECT`, `INSERT`, `UPDATE` på `nordicrent_api.*`.** Ingen av de 7 rutterna tar bort rader (`DELETE /api/equipment/:id` = `UPDATE` till `retired`), så `DELETE` behövs inte. Inga strukturändringar (`CREATE`, `ALTER`, `DROP`) och ingen `GRANT`.
+- [x] Skapa en applikationsanvändare med minsta möjliga behörighet
+  - **Beslut 2026-11-13:** användaren skapas **sist i `setup.sql`** (uppgiften räknar upp tre SQL-filer). `DROP USER IF EXISTS` + `CREATE USER`, eftersom användare ligger utanför databasen och inte försvinner med `DROP DATABASE`.
+  - **Rättigheter per tabell** (bara det de 7 rutterna behöver): `equipment` SELECT/INSERT/UPDATE · `categories` + `depots` SELECT · `bookings` + `booking_lines` SELECT/INSERT · `customers` inget (FK:n kontrolleras av MySQL själv). Ingen av rutterna tar bort rader (`DELETE /api/equipment/:id` = `UPDATE` till `retired`), så `DELETE` behövs inte. Inga strukturändringar (`CREATE`, `ALTER`, `DROP`) och ingen `GRANT`.
+    - **Insikt 2026-11-14:** hade DELETE-rutten skrivits som `DELETE FROM equipment` hade MySQL nekat (`ER_TABLEACCESS_DENIED_ERROR`, 1142). Minsta rättigheter skyddar alltså även mot fel i min egen kod.
   - Appanvändaren är **appens** konto, inte en anställds eller utvecklarens. Utvecklaren använder root i Database Client.
-  - Att lösa: lösenordet står i `setup.sql` (hamnar i git) och i `.env` (hamnar inte i git).
+  - [x] Lösenordet: `12345` är ett övningslösenord (lektionens sätt). Det står i `setup.sql`, `.env.example` och `.env` (bara `.env` är i `.gitignore`). Beslut 2026-11-14: behålls i `.env.example` för enkelhetens skull, README säger att det ska bytas i en riktig installation.
   - **Beslut 2026-11-14: host `'%'` i stället för `'127.0.0.1'`** (`'nordicrent_app_user'@'%'`).
     - **Problemet:** första starten av `server.js` gav `Access denied for user 'nordicrent_app_user'@'<datorns nätverksadress>'`. MySQL körs i en Podman-container, och inifrån containern kommer API:ts anslutning från datorns nätverksadress, inte från 127.0.0.1. För MySQL är `användare@host` en helhet, så `@'127.0.0.1'` och `@'<datorns nätverksadress>'` är två olika användare.
     - **Varför det fungerade i Database Client:** där loggar jag in som root, och root är redan `'%'` i container-imagen.
@@ -136,18 +143,18 @@
     - **Avvägning (säkerhet):** `'%'` = från vilken dator som helst, **inte** vem som helst. Lösenordet krävs fortfarande, och användaren har bara rättigheterna ovan. I en riktig installation: starkt lösenord och MySQL-porten bara lokalt (`-p 127.0.0.1:3306:3306`).
     - `127.0.0.1` i `.env` (`DB_HOST`) och i Database Client är fortfarande rätt: det är adressen man ansluter **till**. `@'…'` i `CREATE USER` är varifrån man får komma.
     - Lärarens `school_api` (`'app_user'@'127.0.0.1'`) har samma problem i min miljö.
-    - [ ] Nämna i README (DB-inställningar) och vid redovisningen.
-- [ ] Appen ansluter aldrig som root
-- [ ] `?`-parametrar för **alla** SQL-värden som kommer från API-anrop
+    - [x] Nämnt i README ("Database settings", 2026-11-14). Kvar: nämna vid redovisningen.
+- [x] Appen ansluter aldrig som root (`.env` → `nordicrent_app_user`)
+- [x] `?`-parametrar för **alla** SQL-värden som kommer från API-anrop (utrustningsrutterna klara, bokningar och rapporter kvar)
 
 ### SQL-frågor (`database/queries.sql`)
 Körs i MySQL och resultatet visas. De behöver **inga** egna API-rutter.
-- [ ] Minst två nästlade SELECT-frågor. Valda frågor:
-  1. **Top earners:** vilka artiklar har dragit in mer i hyresintäkter än genomsnittet per artikel?
-  2. **Flitiga kunder:** vilka kunder har gjort fler bokningar än vad en kund gör i genomsnitt?
-- [ ] Minst en JOIN med minst tre tabeller (t.ex. utrustning + kategori + depå, samma som `GET /api/equipment`, eller en bokning med kund, rader och utrustning)
-- [ ] Minst en sammanställning med `GROUP BY` (t.ex. "vilka artiklar hyr vi ut mest?" eller totalpris per bokning)
-- [ ] En kort förklaring till varje fråga: vilken fråga svarar den på?
+- [x] Minst två nästlade SELECT-frågor. Valda frågor (fråga 3 och 4 i filen):
+  1. **Flitiga kunder:** vilka kunder har gjort fler bokningar än vad en kund gör i genomsnitt?
+  2. **Top earners:** vilka artiklar har dragit in mer i hyresintäkter än genomsnittet per artikel? (Räknar med priset på bokningsraden, så prisändringar påverkar inte gammal intäkt.)
+- [x] Minst en JOIN med minst tre tabeller: fråga 1, utrustning + depå + kategori, samma som `GET /api/equipment` (DB-01)
+- [x] Minst en sammanställning med `GROUP BY`: fråga 2, antal artiklar i bruk per depå (retired räknas inte)
+- [x] En kort förklaring till varje fråga: vilken fråga svarar den på?
 - [ ] Extra, om tid finns (VG):
   - genomsnittligt värde för en bokning (totalen räknas fram per bokning först)
   - kunder som bokat i alla städer där NordicRent har depå
@@ -163,14 +170,22 @@ Körs i MySQL och resultatet visas. De behöver **inga** egna API-rutter.
 - [ ] **Kolla `affectedRows` efter varje INSERT/UPDATE i transaktionen.** Fälla: `INSERT … SELECT … WHERE equipment_id = 99` för en artikel som inte finns ger **inget fel**. SELECT:en hittar 0 rader, så 0 rader läggs in, och FK:n får aldrig något att stoppa. Om `affectedRows` är 0 måste backend själv köra ROLLBACK, annars blir det en bokning utan rader. Samma idé som `ROW_COUNT()` i SQL (`~/sql-kurs/2026-11-09`, fil 03) och lektionens `WHERE status = 'open'`-vakt.
 
 ### Felhantering och databasprov
-- [ ] Databasspecifik felhantering: känna igen MySQL-fel (t.ex. `1062` dubblett, `1452` FK saknas, se `~/sql-kurs/2026-10-26/relationships_notes.sql`) och svara med JSON som skiljer lyckat från misslyckat anrop
+- [x] Databasspecifik felhantering: `dbFailure(error, res)` i `server.js` (2026-11-14) känner igen MySQL:s `error.code` och svarar med JSON:
+  - **400** (klienten skickade fel data): `ER_CHECK_CONSTRAINT_VIOLATED` (3819), `ER_NO_REFERENCED_ROW_2` (1452)
+  - **409** (krock med det som redan finns): `ER_DUP_ENTRY` (1062), `ER_ROW_IS_REFERENCED_2` (1451)
+  - **500** för allt annat. Klienten får bara ett allmänt meddelande, detaljerna loggas i serverterminalen (`console.error` med rutten först).
+- [x] **Validering i två lager** (2026-11-14):
+  - **Lager 1, `src/validation.js`:** körs före `try`, stoppar fel data med 400 innan MySQL nås. `positiveId`, `isObject`, `validDate` (egen hjälpfunktion, återanvänds i bokningar), `validEquipment` (id:n positiva heltal, `model_name` 1–80 tecken, pris ett tal 0–99999.99, datum `ÅÅÅÅ-MM-DD`).
+  - **Lager 2, constraints i MySQL + `dbFailure`:** reservskydd (defense in depth) om valideringen missar något. Prisregeln i JS är samma som CHECK:en (`>= 0`, gratis artiklar som hjälm tillåts).
 - [ ] Tre dokumenterade databasprov i `DATABASE_TESTS.md`, med förväntat och faktiskt resultat:
-  1. läsning/JOIN
-  2. ett constraint-fel
-  3. rollback utan halvfärdiga bokningsrader
+  1. [x] läsning/JOIN (DB-01, 2026-11-14)
+  2. [x] ett constraint-fel (DB-02, SQL 2026-11-13 + API 2026-11-14: negativt pris och okänd kategori → 400)
+  3. [ ] rollback utan halvfärdiga bokningsrader (DB-03: SQL-delen klar 2026-11-14, API-delen kvar till steg 5)
+  - Extra: DB-04 (anonymisering), DB-05 (bookings-constraints), DB-06 (booking_lines-constraints)
 
 ### Objektorienterad problemlösning
 - [ ] Ett litet kodexempel, t.ex. en klass eller ett objekt för databasåtkomst, och en förklaring av varför det hjälper. Inga särskilda arkitekturlager krävs.
+  - **Plan (2026-11-14):** klassen `EquipmentRepository` i `src/repositories/equipmentRepository.js` (filen finns, tom). Flytta SQL:en från de fyra utrustningsrutterna till metoder i klassen, så att rutterna bara validerar, anropar en metod och svarar. Ger en tydlig "före/efter" att visa på redovisningen. Görs efter steg 5–6.
 
 ### Utkast: varför varje tabell finns (till texten om 3NF)
 - **customers:** samlar all information om en kund på ett ställe.
@@ -185,17 +200,27 @@ Körs i MySQL och resultatet visas. De behöver **inga** egna API-rutter.
 
 ## API (endast 7 obligatoriska rutter)
 
-| Metod | Rutt | Databaskunskap som visas |
-|---|---|---|
-| GET | `/api/equipment` | SELECT + JOIN (utrustning, kategori, depå) |
-| POST | `/api/equipment` | Parameteriserad INSERT |
-| PUT | `/api/equipment/:id` | Parameteriserad UPDATE |
-| DELETE | `/api/equipment/:id` | Avveckling: sätter status `retired` (enligt FK-policyn) |
-| POST | `/api/bookings` | MySQL-transaktion med booking + booking_lines |
-| POST | `/api/reports` | Spara ett MongoDB-dokument |
-| GET | `/api/reports/equipment/:id` | Hämta MongoDB-dokument |
+| Metod | Rutt | Databaskunskap som visas | Status |
+|---|---|---|---|
+| GET | `/api/equipment` | SELECT + JOIN (utrustning, kategori, depå) | ✅ 2026-11-14 |
+| POST | `/api/equipment` | Parameteriserad INSERT | ✅ 2026-11-14 |
+| PUT | `/api/equipment/:id` | Parameteriserad UPDATE | ✅ 2026-11-14 |
+| DELETE | `/api/equipment/:id` | Avveckling: sätter status `retired` (enligt FK-policyn) | ✅ 2026-11-14 |
+| POST | `/api/bookings` | MySQL-transaktion med booking + booking_lines | steg 5 |
+| POST | `/api/reports` | Spara ett MongoDB-dokument | steg 6 |
+| GET | `/api/reports/equipment/:id` | Hämta MongoDB-dokument | steg 6 |
 
-- [ ] Valfritt: `GET /api/health` (räknas inte till de sju)
+- [x] Valfritt: `GET /api/health` (räknas inte till de sju)
+
+**Struktur (beslut 2026-11-14):** förenklad, nära lärarens `school_api`. Kvar i `src/`: `server.js` (alla rutter + `dbFailure`), `config/db.js` (poolen), `config/mongo.js` (steg 6), `validation.js`, `repositories/equipmentRepository.js` (OOP-exemplet). De tomma filerna från den gamla uppgiften (routes/, services/, middleware/, kund-/boknings-/rapport-repositories) är borttagna. Servern startas från rotmappen med `node src/server.js` (så att `.env` hittas).
+
+**Beslut om utrustningsrutterna (2026-11-14):**
+- **GET** visar hela lagret, även `retired` (status syns på varje artikel). Priset kommer som text (`"350.00"`) eftersom `decimalNumbers: false`: JavaScript kan inte lagra DECIMAL exakt. JSON-svaret med `city` och `category_name` i stället för id:n är **backend↔frontend-exemplet**, kan visas live med curl.
+- **POST** tar emot de fem fälten (`category_id`, `depot_id`, `model_name`, `daily_price`, `purchase_date`). `equipment_id` ges av AUTO_INCREMENT och `status` av `DEFAULT 'available'`. Svarar `201` + `equipment_id` (`result.insertId`).
+- **PUT** ändrar samma fem fält, **inte status**. Status ändras på andra ställen: `rented` av bokningstransaktionen, `retired` av DELETE (`maintenance` har ingen rutt, se API v2). `WHERE equipment_id=? AND status <> 'retired'`: en retired artikel kan inte ändras. `affectedRows === 0` → `404` ("not found or retired"). En prisändring påverkar inte gamla bokningar (priset ligger på bokningsraden), testat med artikel 4: 450 → 500, bokning 7 räknas fortfarande med 400.
+- **DELETE** = **soft delete**: `UPDATE … SET status='retired' WHERE equipment_id=? AND status <> 'retired' AND status <> 'rented'`. Raden ligger kvar, så gamla bokningsrader pekar fortfarande på något som finns. `available` och `maintenance` får tas ur bruk, men inte en artikel som är ute hos en kund. Svarar `200` + `{ equipment_id, status: 'retired' }`, annars `404`. HTTP-metoden (DELETE) beskriver vad klienten vill, SQL-kommandot (UPDATE) hur backend gör det.
+- **Statuskoder:** 200 OK, 201 Created, 400 fel data, 404 hittades inte, 409 krock, 500 oväntat fel.
+- [ ] Liten rest: stavfel "renter" → "rented" i DELETE-rutten 404-meddelande.
 - [ ] JSON-svar och grundläggande skillnad mellan lyckat och misslyckat anrop räcker
 - [ ] Fler rutter ger **inte** automatiskt VG. VG = tekniskt väl genomförd SQL och tabellhantering, och att jag använder MySQL och MongoDB självständigt och ändamålsenligt.
 
@@ -206,10 +231,10 @@ Körs i MySQL och resultatet visas. De behöver **inga** egna API-rutter.
 - [ ] Källkoden (vidareutvecklas till API v2 i nästa kurs)
 - [ ] `database/setup.sql`, `database/seed.sql`, `database/queries.sql`
 - [ ] ER-diagram (bild/PDF) + kort text om 3NF, relationer, MongoDB-val och transaktion
-- [ ] `.env.example` med platshållare (aldrig riktiga lösenord)
-- [ ] `README.md` med installation, start/stopp och databasinställningar
-- [ ] `DATABASE_TESTS.md` med tre körda databasprov inklusive faktiskt resultat
-- [ ] Muntlig redovisning enligt `oral_presentation_guide.md` (har inte setts än)
+- [x] `.env.example` (finns, med övningslösenordet `12345`, se Säkerhet)
+- [ ] `README.md` med installation, start/stopp och databasinställningar ("Database settings" klar 2026-11-14, resten TODO)
+- [ ] `DATABASE_TESTS.md` med tre körda databasprov inklusive faktiskt resultat (DB-01 + DB-02 klara, DB-03 API-del kvar)
+- [ ] Muntlig redovisning enligt `oral_presentation_guide.md` (**har inte setts än, läs den!**)
 
 ---
 
@@ -274,6 +299,9 @@ Krävs inte i den här kursen. Sparas så att idéerna inte försvinner.
 - `GET /api/equipment/:id`, filter på kategori/stad/status, `GET /api/equipment/top-earners`
 - `GET /api/bookings/:id`, `PATCH /api/bookings/:id/return` (MySQL + MongoDB), `PATCH /api/bookings/:id/cancel`
 - `GET /api/reports/damaged`
+- En rutt för att ändra en artikels status, t.ex. till `maintenance` (PUT ändrar bara uppgifterna, inte tillståndet)
+- Validering som säger **vilket** fält som var fel (`validEquipment` returnerar en lista med fel i stället för true/false)
+- Fler MySQL-felkoder i `dbFailure`, t.ex. ogiltigt datum som `2026-13-45` (passerar regexen men stoppas av MySQL) och `ER_TABLEACCESS_DENIED_ERROR`
 - Konsekventa HTTP-felsvar (400/404/409/500), gemensam felmodell, validering i middleware, API-testsvit
 
 ## Förbättringsförslag (utanför uppgiftens krav)
