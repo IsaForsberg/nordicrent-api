@@ -150,6 +150,9 @@ Körs i MySQL och resultatet visas. De behöver **inga** egna API-rutter.
 - [ ] Visa en **COMMIT** (allt sparas)
 - [ ] Visa en **avsiktlig ROLLBACK** (ett steg misslyckas, och inga halvfärdiga bokningsrader blir kvar)
 - [ ] Förhindra en uppenbar dubbelbokning av en utrustning som redan är uthyrd
+- [x] COMMIT + ROLLBACK visade i SQL (DB-03, 2026-11-14). API-delen återstår i steg 5.
+- [ ] **Priset till bokningsraden med `INSERT … SELECT`** (från `equipment.daily_price`): priset går MySQL → MySQL och passerar aldrig JavaScript (ingen sträng/Number-omvandling), och klienten kan inte skicka in ett eget pris.
+- [ ] **Kolla `affectedRows` efter varje INSERT/UPDATE i transaktionen.** Fälla: `INSERT … SELECT … WHERE equipment_id = 99` för en artikel som inte finns ger **inget fel**. SELECT:en hittar 0 rader, så 0 rader läggs in, och FK:n får aldrig något att stoppa. Om `affectedRows` är 0 måste backend själv köra ROLLBACK, annars blir det en bokning utan rader. Samma idé som `ROW_COUNT()` i SQL (`~/sql-kurs/2026-11-09`, fil 03) och lektionens `WHERE status = 'open'`-vakt.
 
 ### Felhantering och databasprov
 - [ ] Databasspecifik felhantering: känna igen MySQL-fel (t.ex. `1062` dubblett, `1452` FK saknas, se `~/sql-kurs/2026-10-26/relationships_notes.sql`) och svara med JSON som skiljer lyckat från misslyckat anrop
