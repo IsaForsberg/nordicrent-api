@@ -1,3 +1,4 @@
+ 
  USE nordicrent_api;
  
 
@@ -11,6 +12,8 @@
   JOIN depots AS d ON d.depot_id = e.depot_id
   JOIN categories AS c ON c.category_id = e.category_id
   ORDER BY d.city, current_daily_price;
+
+-------------------------------------------------------------------------------------------
 
 
 -- 2. GROUP BY with COUNT
@@ -26,6 +29,7 @@ WHERE e.status <> 'retired'
 GROUP BY d.depot_id, d.city
 ORDER BY d.city;
 
+-------------------------------------------------------------------------------------------
 
 -- 3. Nested SELECT (subqueries)
 -- Question: Which customers are our top customers, meaning customers who have made
@@ -54,6 +58,8 @@ WHERE per_customer.booking_count > (
     ) AS booking_totals
 )
 ORDER BY per_customer.booking_count DESC, name;
+
+-------------------------------------------------------------------------------------------
 
 
 -- 4. Nested SELECT (subqueries): top earners
@@ -86,3 +92,47 @@ WHERE per_equipment.revenue > (
     ) AS revenue_totals
 )
 ORDER BY per_equipment.revenue DESC, e.model_name;
+
+
+-------------------------------------------------------------------------------------------
+
+
+
+SELECT COUNT(*) FROM bookings;
+SELECT COUNT(*) FROM booking_lines;
+
+START TRANSACTION;
+
+INSERT INTO bookings (customer_id, start_date, end_date)
+VALUES (2, '2026-12-03', '2026-12-05');
+
+INSERT INTO booking_lines (booking_id, equipment_id, daily_price)
+VALUES (17, 99, 350.00);
+
+SHOW ERRORS;
+SELECT * FROM bookings WHERE booking_id = 17;
+ROLLBACK;
+
+SELECT COUNT(*) FROM bookings;
+SELECT COUNT(*) FROM booking_lines;
+
+
+
+------------------------------------------------
+
+SELECT COUNT(*) FROM bookings;
+SELECT COUNT(*) FROM booking_lines;
+
+START TRANSACTION;
+
+INSERT INTO bookings (customer_id, start_date, end_date)
+VALUES (2, '2026-12-03', '2026-12-05');
+
+SELECT * FROM bookings WHERE booking_id = LAST_INSERT_ID();
+INSERT INTO booking_lines (booking_id, equipment_id, daily_price)
+VALUES (LAST_INSERT_ID(), 3, 350.00);
+
+COMMIT;
+SELECT * FROM booking_lines WHERE booking_id = 18;
+SELECT COUNT(*) FROM bookings;
+SELECT COUNT(*) FROM booking_lines;

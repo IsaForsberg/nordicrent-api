@@ -4,9 +4,9 @@ Three database tests that were run against MySQL. Each test describes what is te
 
 | Test ID | What is tested | Date run | Pass/Fail |
 |---|---|---|---|
-| DB-01 | Read with JOIN | | |
+| DB-01 | Read with JOIN | 2026-11-14 | Pass |
 | DB-02 | Constraint error | 2026-11-13 (SQL part) | Pass |
-| DB-03 | Rollback without half-finished booking lines | | |
+| DB-03 | Rollback without half-finished booking lines (+ COMMIT) | 2026-11-14 (SQL part) | Pass |
 | DB-04 (extra) | Anonymization: CHECK + UNIQUE with NULL on `customers` | 2026-11-13 | Pass |
 | DB-05 (extra) | Constraints on `bookings`: duration CHECK, FK on insert, RESTRICT on delete | 2026-11-13 | Pass |
 | DB-06 (extra) | Constraints on `booking_lines`: UNIQUE pair, RESTRICT and CASCADE | 2026-11-13 | Pass |
@@ -15,13 +15,32 @@ Three database tests that were run against MySQL. Each test describes what is te
 
 ## DB-01: Read with JOIN
 
-**What is tested:** TODO
+**What is tested:** That a JOIN over three tables (`equipment`, `depots`, `categories`) turns the foreign keys `depot_id` and `category_id` into readable data. `equipment` only stores the ids, and the query shows, for every item, which depot (city) it belongs to, its category name, its status and its current daily price. This is query 1 in `database/queries.sql` and the basis for `GET /api/equipment`.
 
-**How it is run:** TODO (SQL query or API request)
+**How it is run:** After a fresh run of `database/setup.sql` followed by `database/seed.sql`, in Database Client (only query 1 selected and run):
 
-**Expected result:** TODO
+```sql
+USE nordicrent_api;
 
-**Actual result:** *not run yet*
+SELECT e.equipment_id, e.model_name, d.city, e.status, e.daily_price AS current_daily_price, c.name AS category_name
+FROM equipment AS e
+JOIN depots AS d ON d.depot_id = e.depot_id
+JOIN categories AS c ON c.category_id = e.category_id
+ORDER BY d.city, current_daily_price;
+```
+
+**Expected result:**
+- 12 rows, one per equipment item in the seed data. No item is lost in the (inner) JOIN, because `depot_id` and `category_id` are `NOT NULL` foreign keys, so every item has exactly one existing depot and one existing category.
+- All statuses are included, also `maintenance` (item 8) and `retired` (item 12), since the query does not filter on status.
+- `city` and `category_name` show names (for example `Umeå` and `Kayak`), not ids.
+- Sorted by city, and by price ascending within each city.
+
+**Actual result (2026-11-14):** As expected.
+- 12 rows, including the retired item 12.
+- City order: Göteborg, Östersund, Umeå. The default collation `utf8mb4_0900_ai_ci` is accent-insensitive, so `Ö` is sorted as `O`. A Swedish collation would have put Östersund last.
+- Prices ascending within each city (for example Göteborg: 200.00, 350.00, 450.00).
+
+**Decision after the test:** the retired item is kept in the result on purpose. Query 1 lists the whole inventory, and `status` is shown for every item, so retired equipment is visible as retired. Counting queries filter it out instead (query 2 uses `WHERE e.status <> 'retired'`).
 
 ---
 
@@ -66,15 +85,98 @@ SELECT * FROM equipment;
 
 ## DB-03: Rollback without half-finished booking lines
 
-**What is tested:** TODO
+**What is tested:** A booking is saved with two inserts: first a row in `bookings`, then one row per item in `booking_lines`. The two inserts must be all or nothing. If a booking line cannot be saved, the booking must not be left behind without lines (a half-finished booking). The test runs two transactions:
 
-**How it is run:** TODO (how one step of the booking transaction is made to fail on purpose)
+- **Transaction A (ROLLBACK):** the second insert fails on purpose, and `ROLLBACK` removes the booking that was already inserted.
+- **Transaction B (COMMIT):** both inserts succeed, and `COMMIT` saves them together.
 
-**Expected result:** TODO (what should exist in `bookings` and `booking_lines` afterwards)
+**How it is run:** After a fresh run of `database/setup.sql` followed by `database/seed.sql`, in Database Client, one statement at a time. Before the test: `bookings` has 16 rows and `booking_lines` has 22.
 
-**Actual result:** *not run yet*
+The failure in A is a booking line for equipment 99, which does not exist, so `fk_booking_lines_equipment` rejects it. `LAST_INSERT_ID()` gives the id of the booking that was just inserted, so the booking line does not depend on a hand-written id.
 
----
+```sql
+-- Transaction A: second insert fails, everything is rolled back
+SELECT COUNT(*) FROM bookings;        -- before
+SELECT COUNT(*) FROM booking_lines;   -- before
+
+START TRANSACTION;
+
+INSERT INTO bookings (customer_id, start_date, end_date)
+VALUES (2, '2026-12-03', '2026-12-05');
+
+SELECT * FROM bookings WHERE booking_id = LAST_INSERT_ID();
+
+INSERT INTO booking_lines (booking_id, equipment_id, daily_price)
+VALUES (LAST_INSERT_ID(), 99, 350.00);   -- equipment 99 does not exist
+
+SHOW ERRORS;
+
+ROLLBACK;
+
+SELECT COUNT(*) FROM bookings;        -- after
+SELECT COUNT(*) FROM booking_lines;   -- after
+```
+
+```sql
+-- Transaction B: both inserts succeed and are committed
+SELECT COUNT(*) FROM bookings;
+SELECT COUNT(*) FROM booking_lines;
+
+START TRANSACTION;
+
+INSERT INTO bookings (customer_id, start_date, end_date)
+VALUES (2, '2026-12-03', '2026-12-05');
+
+SELECT * FROM bookings WHERE booking_id = LAST_INSERT_ID();
+
+INSERT INTO booking_lines (booking_id, equipment_id, daily_price)
+VALUES (LAST_INSERT_ID(), 3, 350.00);    -- equipment 3, free on these dates, current price 350.00
+
+COMMIT;
+
+SELECT * FROM booking_lines WHERE booking_id = 18;
+SELECT COUNT(*) FROM bookings;
+SELECT COUNT(*) FROM booking_lines;
+```
+
+**Expected result:**
+
+*Transaction A*
+1. Before: 16 bookings, 22 booking lines.
+2. The booking insert succeeds and the new booking (id 17) is visible inside the transaction.
+3. The booking line insert is rejected with error 1452 from `fk_booking_lines_equipment`.
+4. MySQL does **not** undo the booking by itself. The booking is still there until `ROLLBACK` is run.
+5. After `ROLLBACK`: 16 bookings and 22 booking lines again. No half-finished booking.
+
+*Transaction B*
+1. The new booking gets id **18**, not 17. `AUTO_INCREMENT` does not give back the id that was used by the rolled-back booking in A.
+2. Both inserts succeed.
+3. After `COMMIT`: 17 bookings and 23 booking lines. The new line belongs to booking 18, with equipment 3 and daily price 350.00.
+
+**Actual result (SQL, 2026-11-14):** As expected.
+
+*Transaction A*
+- Before: 16 / 22.
+- Booking 17 was visible in `bookings` before `ROLLBACK`.
+- The booking line insert was rejected: `Cannot add or update a child row: a foreign key constraint fails (... CONSTRAINT fk_booking_lines_equipment FOREIGN KEY (equipment_id) REFERENCES equipment (equipment_id) ...)`, error 1452.
+- Booking 17 was still there after the error, until `ROLLBACK` was run.
+- After `ROLLBACK`: 16 / 22.
+
+*Transaction B*
+- The booking got id 18.
+- `booking_lines` showed one line for booking 18 (equipment 3, 350.00).
+- After `COMMIT`: 17 / 23.
+
+**Lessons from running the test:**
+- **Hand-written ids are fragile.** An earlier attempt wrote `booking_id` 17 by hand in transaction B. Since 17 had been used up by the rollback in A, the line would have failed on `fk_booking_lines_booking` instead, and the `COMMIT` would then have saved booking 18 **without any lines**. That is exactly the half-finished booking the test is meant to prevent. `LAST_INSERT_ID()` fixes it.
+- **`LAST_INSERT_ID()` changes after every insert with `AUTO_INCREMENT`.** After the booking line insert it returns the new `booking_line_id`, not the booking id. That is why the last `SELECT` in B uses 18 written out.
+- **`COMMIT` does not check for earlier errors.** It saves whatever succeeded. Deciding between `COMMIT` and `ROLLBACK` is the backend's job: in step 5 the booking route catches the error and runs `ROLLBACK` itself.
+
+**API part (TODO, step 5):** run the same two cases through `POST /api/bookings` with curl (one with a non-existing equipment id, one valid), and document the status codes and the row counts afterwards.
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
 
 ## DB-04 (extra): Anonymization rules on `customers`
 

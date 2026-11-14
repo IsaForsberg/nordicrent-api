@@ -1,0 +1,30 @@
+{
+  "name": "nordicrent-api",
+  "version": "1.0.0",
+  "description": "Backend for NordicRent, a Scandinavian startup that rents out outdoor equipment (tents, kayaks, e-bikes, ski equipment) from depots in several cities. Customers book equipment for a date range, pick it up at a depot and return it. Staff write condition reports for the equipment.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IsaForsberg/nordicrent-api.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/IsaForsberg/nordicrent-api/issues"
+  },
+  "homepage": "https://github.com/IsaForsberg/nordicrent-api#readme",
+  "dependencies": {
+    "dotenv": "^18.0.10",
+    "express": "^4.22.3",
+    "mongodb": "^7.9.0",
+    "mysql2": "^3.24.6"
+  }
+}
