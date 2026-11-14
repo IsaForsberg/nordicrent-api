@@ -4,7 +4,7 @@
 
 > Uppdaterad 2026-11-09 efter lärarens nya version av uppgiften. Den nya versionen har färre API-rutter och fokuserar på databasen: SQL, transaktion, databasprov och MongoDB. Det som inte längre krävs finns under [Sparat till API v2](#sparat-till-api-v2-nästa-kurs).
 >
-> **Senast uppdaterad 2026-11-14 (lördag kväll):** steg 1–4 klara (utom ER-export och OOP-klassen). Nästa: steg 5, bokningstransaktionen.
+> **Senast uppdaterad 2026-11-14 (lördag kväll):** steg 1–4 klara, inklusive OOP-klassen (utom ER-export). Nästa: steg 5, bokningstransaktionen.
 
 ---
 
@@ -16,7 +16,7 @@
 - [x] **Steg 3 – Visa SQL-kunskaper:** `database/queries.sql` med 4 frågor (JOIN 3 tabeller, GROUP BY, 2 nästlade) + kommentarer om vad varje fråga svarar på
   - [ ] Kvar: fråga läraren hur resultaten ska "visas" (skärmdump, text i README eller kommentar i filen?)
 - [x] **Steg 4 – Express-koppling:** servern startar, ansluter med `mysql2` som appanvändaren, alla fyra utrustningsrutterna klara med `?`-parametrar, validering och felhantering (2026-11-14)
-  - [ ] Kvar: OOP-klassen `EquipmentRepository` (flytta SQL:en från `server.js` till metoder i klassen)
+  - [x] OOP-klassen `EquipmentRepository` klar 2026-11-14 kväll (all utrustnings-SQL flyttad dit)
 - [ ] **Steg 5 – Bokningstransaktionen:** `POST /api/bookings` som riktig transaktion, visa att rollback tar bort alla delresultat ← **NÄSTA (söndag 15/11)**
 - [ ] **Steg 6 – MongoDB:** spara och läsa tillståndsrapporter via de två rapportrutterna, motivera varför de passar som dokument
 - [ ] **Steg 7 – Kontroll och presentation:** tre databasprov i `DATABASE_TESTS.md`, README med start/stopp och databasinställningar, träna på att förklara SQL- och dataval
@@ -184,8 +184,14 @@ Körs i MySQL och resultatet visas. De behöver **inga** egna API-rutter.
   - Extra: DB-04 (anonymisering), DB-05 (bookings-constraints), DB-06 (booking_lines-constraints)
 
 ### Objektorienterad problemlösning
-- [ ] Ett litet kodexempel, t.ex. en klass eller ett objekt för databasåtkomst, och en förklaring av varför det hjälper. Inga särskilda arkitekturlager krävs.
-  - **Plan (2026-11-14):** klassen `EquipmentRepository` i `src/repositories/equipmentRepository.js` (filen finns, tom). Flytta SQL:en från de fyra utrustningsrutterna till metoder i klassen, så att rutterna bara validerar, anropar en metod och svarar. Ger en tydlig "före/efter" att visa på redovisningen. Görs efter steg 5–6.
+- [x] Ett litet kodexempel, t.ex. en klass eller ett objekt för databasåtkomst, och en förklaring av varför det hjälper. Inga särskilda arkitekturlager krävs.
+  - **Klart 2026-11-14:** klassen `EquipmentRepository` i `src/repositories/equipmentRepository.js`. All SQL för utrustning är flyttad dit, `server.js` har ingen `pool.execute` kvar för utrustning. Testat: GET oförändrad, POST 201, PUT 200/404, DELETE 200/404.
+  - **Konstruktorn** tar emot `pool` och sparar den på `this.pool`. Poolen skapas i `server.js` (`require('./config/db')`) och lämnas över med `new EquipmentRepository(pool)`, en instans. `server.js` behöver alltså fortfarande `pool` (för `new …`, `SELECT 1` vid start och `pool.end()`).
+  - **Metoder** (namn efter vad de gör i databasen, inte HTTP-metoden): `findAll()` → raderna · `create(data)` → `insertId` · `update(id, data)` → `affectedRows` · `retire(id)` → `affectedRows`.
+  - **Ansvarsfördelning (det jag förklarar på redovisningen):** klassen vet ingenting om HTTP (inget `req`/`res`, inga statuskoder, inget `try/catch`). Den pratar bara med databasen och ger tillbaka vad som hände. Rutten validerar, anropar metoden och översätter resultatet till en statuskod (`affectedRows === 0` → 404). Fel "bubblar upp" till rutternas `catch` och `dbFailure`.
+  - **Varför det hjälper:** all SQL för en tabell på ett ställe, kortare rutter, samma metod kan återanvändas (t.ex. av bokningstransaktionen), och vill man byta databas eller testa rutterna behöver bara klassen ändras.
+  - **Lärdomar på vägen:** metoder som gör liknande saker ska ge tillbaka samma sorts sak (först gav `update`/`retire` hela `result`, då blev `affectedRows === 0` aldrig sant och 404 kom aldrig, utan något fel). Byter man namn på en variabel måste alla ställen ändras (`result is not defined` → 500, men INSERT:en hade redan sparats).
+  - Kvar (valfritt): en `BookingRepository` för transaktionen i steg 5, om det passar.
 
 ### Utkast: varför varje tabell finns (till texten om 3NF)
 - **customers:** samlar all information om en kund på ett ställe.

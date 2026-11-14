@@ -4,6 +4,7 @@
 require('dotenv').config();
 const express = require('express');
 const pool = require('./config/db');
+const EquipmentRepository = require('./repositories/equipmentRepository')
 //const { connectMongo, reportsCollection, closeMongo } = require('./connections/mongo');
 const { positiveId, validEquipment, validBooking, validReport} = require('./validation');
 
@@ -28,16 +29,11 @@ app.use(express.json());
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
 
+const equipmentRepository = new EquipmentRepository(pool);
 
 app.get('/api/equipment', async (req, res) => {
  try {
- const [rows] = await pool.execute(`
-     SELECT e.equipment_id, e.model_name, d.city, e.status, e.daily_price AS current_daily_price, c.name AS category_name
-    FROM equipment AS e
-     JOIN depots AS d ON d.depot_id = e.depot_id
-     JOIN categories AS c ON c.category_id = e.category_id
-    ORDER BY d.city, current_daily_price;
- `);
+ const rows = await equipmentRepository.findAll();
  return res.json(rows);
  } catch (error) {  
     console.error('GET /api/equipment failed:', error.message)
@@ -51,11 +47,8 @@ app.get('/api/equipment', async (req, res) => {
     return res.status(400).json({ error: 'Missing or invalid fields. Required: category_id, depot_id, model_name, daily_price, purchase_date' });
   }
   try {
-    const [result] = await pool.execute(
-      'INSERT INTO equipment (category_id, depot_id, model_name, daily_price, purchase_date) VALUES (?, ?, ?, ?, ?)',
-      [Number(req.body.category_id), Number(req.body.depot_id), req.body.model_name.trim(), req.body.daily_price, req.body.purchase_date]
-    );
-    return res.status(201).json({ equipment_id: result.insertId });
+    const equipmentId = await equipmentRepository.create(req.body);
+    return res.status(201).json({ equipment_id: equipmentId});
   } catch (error) {
     console.error('POST /api/equipment failed:', error.message)
    return dbFailure(error, res);
@@ -67,13 +60,8 @@ app.put('/api/equipment/:id', async (req, res) => {
     return res.status(400).json({ error: 'Valid equipment id in the URL and valid fields required: category_id, depot_id, model_name, daily_price, purchase_date' });
   }
   try {
-    const [result] = await pool.execute(
-      `UPDATE equipment 
-       SET category_id=?, depot_id=?, model_name=?, daily_price=?, purchase_date=? 
-       WHERE equipment_id=? AND status <> 'retired'`,
-      [Number(req.body.category_id), Number(req.body.depot_id), req.body.model_name.trim(), req.body.daily_price, req.body.purchase_date, Number(req.params.id)]
-    );
-    if (result.affectedRows === 0) {
+        const affectedRows = await equipmentRepository.update(req.params.id, req.body)
+    if (affectedRows === 0) {
       return res.status(404).json({ error: 'Equipment not found or is retired' });
     }
     return res.json({ updated: true });
@@ -88,13 +76,8 @@ app.delete('/api/equipment/:id', async (req, res) => {
     return res.status(400).json({ error: 'Valid equipment ID required' });
   }
   try {
-    const [result] = await pool.execute(
-      `UPDATE equipment
-       SET status='retired'
-       WHERE equipment_id=? AND status<>'retired' AND status<>'rented'`,
-      [Number(req.params.id)]
-    );
-    if (result.affectedRows === 0) {
+    const affectedRows = await equipmentRepository.retire(req.params.id)
+    if (affectedRows === 0) {
       return res.status(404).json({ error: 'Equipment not found or is rented or retired' });
     }
     return res.status(200).json({ equipment_id: Number(req.params.id), status: 'retired' });
