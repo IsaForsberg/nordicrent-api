@@ -5,7 +5,7 @@ require('dotenv').config();
 const express = require('express');
 const pool = require('./config/db');
 //const { connectMongo, reportsCollection, closeMongo } = require('./connections/mongo');
-//const { positiveId, validResource, validLoan, validReport } = require('./validation');
+const { positiveId, validEquipment, validBooking, validReport} = require('./validation');
 
 
 function dbFailure(error, res) {
@@ -47,6 +47,9 @@ app.get('/api/equipment', async (req, res) => {
 
 
   app.post('/api/equipment', async (req, res) => {
+      if (!validEquipment(req.body)) {
+    return res.status(400).json({ error: 'Missing or invalid fields. Required: category_id, depot_id, model_name, daily_price, purchase_date' });
+  }
   try {
     const [result] = await pool.execute(
       'INSERT INTO equipment (category_id, depot_id, model_name, daily_price, purchase_date) VALUES (?, ?, ?, ?, ?)',
