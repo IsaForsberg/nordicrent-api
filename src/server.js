@@ -83,6 +83,27 @@ app.put('/api/equipment/:id', async (req, res) => {
   }
 });
 
+app.delete('/api/equipment/:id', async (req, res) => {
+  if (!positiveId(req.params.id)) {
+    return res.status(400).json({ error: 'Valid equipment ID required' });
+  }
+  try {
+    const [result] = await pool.execute(
+      `UPDATE equipment
+       SET status='retired'
+       WHERE equipment_id=? AND status<>'retired' AND status<>'rented'`,
+      [Number(req.params.id)]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Equipment not found or is rented or retired' });
+    }
+    return res.status(200).json({ equipment_id: Number(req.params.id), status: 'retired' });
+  } catch (error) {
+    console.error('DELETE /api/equipment failed:', error.message)
+    return dbFailure(error, res);
+  }
+});
+
 
   const PORT = Number(process.env.PORT || 3007);
 async function start() {
