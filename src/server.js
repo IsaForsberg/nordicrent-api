@@ -62,6 +62,27 @@ app.get('/api/equipment', async (req, res) => {
   }
 });
 
+app.put('/api/equipment/:id', async (req, res) => {
+  if (!positiveId(req.params.id) || !validEquipment(req.body)) {
+    return res.status(400).json({ error: 'Valid equipment id in the URL and valid fields required: category_id, depot_id, model_name, daily_price, purchase_date' });
+  }
+  try {
+    const [result] = await pool.execute(
+      `UPDATE equipment 
+       SET category_id=?, depot_id=?, model_name=?, daily_price=?, purchase_date=? 
+       WHERE equipment_id=? AND status <> 'retired'`,
+      [Number(req.body.category_id), Number(req.body.depot_id), req.body.model_name.trim(), req.body.daily_price, req.body.purchase_date, Number(req.params.id)]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Equipment not found or is retired' });
+    }
+    return res.json({ updated: true });
+  } catch (error) {
+    console.error('PUT /api/equipment failed:', error.message)
+    return dbFailure(error, res);
+  }
+});
+
 
   const PORT = Number(process.env.PORT || 3007);
 async function start() {
