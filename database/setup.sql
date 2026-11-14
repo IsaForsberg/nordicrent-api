@@ -77,16 +77,22 @@ CREATE TABLE booking_lines (
 -- App user for the Express API, with least privilege (no DELETE, no CREATE/ALTER/DROP).
 -- '12345' is a local development password only. Change it before any real installation.
 -- The real password must never be in the code: it belongs in .env, which is not committed to git.
+-- Host '%' (any host) instead of '127.0.0.1': MySQL runs in a Podman container, so the API's
+-- connection reaches MySQL from the host machine's network address (e.g. 192.168.0.41), not
+-- from 127.0.0.1. '%' works both with and without a container. The user can still only log in
+-- with the password, and only has the privileges granted below.
+-- In a real installation: a strong password, and the MySQL port exposed only locally
+-- (podman run -p 127.0.0.1:3306:3306 ...).
 
 
-DROP USER IF EXISTS 'nordicrent_app_user'@'127.0.0.1';
-CREATE USER IF NOT EXISTS 'nordicrent_app_user'@'127.0.0.1'
+DROP USER IF EXISTS 'nordicrent_app_user'@'%';
+CREATE USER IF NOT EXISTS 'nordicrent_app_user'@'%'
     IDENTIFIED BY '12345';
 
-GRANT SELECT, INSERT, UPDATE ON nordicrent_api.equipment TO 'nordicrent_app_user'@'127.0.0.1';
-GRANT SELECT ON nordicrent_api.categories TO 'nordicrent_app_user'@'127.0.0.1';
-GRANT SELECT ON nordicrent_api.depots TO 'nordicrent_app_user'@'127.0.0.1';
-GRANT SELECT, INSERT ON nordicrent_api.bookings TO 'nordicrent_app_user'@'127.0.0.1';
-GRANT SELECT, INSERT ON nordicrent_api.booking_lines TO 'nordicrent_app_user'@'127.0.0.1';
+GRANT SELECT, INSERT, UPDATE ON nordicrent_api.equipment TO 'nordicrent_app_user'@'%';
+GRANT SELECT ON nordicrent_api.categories TO 'nordicrent_app_user'@'%';
+GRANT SELECT ON nordicrent_api.depots TO 'nordicrent_app_user'@'%';
+GRANT SELECT, INSERT ON nordicrent_api.bookings TO 'nordicrent_app_user'@'%';
+GRANT SELECT, INSERT ON nordicrent_api.booking_lines TO 'nordicrent_app_user'@'%';
 
-SHOW GRANTS FOR 'nordicrent_app_user'@'127.0.0.1';
+SHOW GRANTS FOR 'nordicrent_app_user'@'%';

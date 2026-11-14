@@ -129,6 +129,14 @@
   - **Rättigheter: bara `SELECT`, `INSERT`, `UPDATE` på `nordicrent_api.*`.** Ingen av de 7 rutterna tar bort rader (`DELETE /api/equipment/:id` = `UPDATE` till `retired`), så `DELETE` behövs inte. Inga strukturändringar (`CREATE`, `ALTER`, `DROP`) och ingen `GRANT`.
   - Appanvändaren är **appens** konto, inte en anställds eller utvecklarens. Utvecklaren använder root i Database Client.
   - Att lösa: lösenordet står i `setup.sql` (hamnar i git) och i `.env` (hamnar inte i git).
+  - **Beslut 2026-11-14: host `'%'` i stället för `'127.0.0.1'`** (`'nordicrent_app_user'@'%'`).
+    - **Problemet:** första starten av `server.js` gav `Access denied for user 'nordicrent_app_user'@'192.168.0.41'`. MySQL körs i en Podman-container, och inifrån containern kommer API:ts anslutning från datorns nätverksadress, inte från 127.0.0.1. För MySQL är `användare@host` en helhet, så `@'127.0.0.1'` och `@'192.168.0.41'` är två olika användare.
+    - **Varför det fungerade i Database Client:** där loggar jag in som root, och root är redan `'%'` i container-imagen.
+    - **Varför `'%'`:** fungerar både med container (hos mig) och utan (MySQL installerat direkt, som hos läraren). En fast IP (`@'192.168.0.41'`) kan ändras när routern delar ut en ny adress.
+    - **Avvägning (säkerhet):** `'%'` = från vilken dator som helst, **inte** vem som helst. Lösenordet krävs fortfarande, och användaren har bara rättigheterna ovan. I en riktig installation: starkt lösenord och MySQL-porten bara lokalt (`-p 127.0.0.1:3306:3306`).
+    - `127.0.0.1` i `.env` (`DB_HOST`) och i Database Client är fortfarande rätt: det är adressen man ansluter **till**. `@'…'` i `CREATE USER` är varifrån man får komma.
+    - Lärarens `school_api` (`'app_user'@'127.0.0.1'`) har samma problem i min miljö.
+    - [ ] Nämna i README (DB-inställningar) och vid redovisningen.
 - [ ] Appen ansluter aldrig som root
 - [ ] `?`-parametrar för **alla** SQL-värden som kommer från API-anrop
 
