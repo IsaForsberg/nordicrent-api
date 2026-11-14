@@ -78,7 +78,7 @@ CREATE TABLE booking_lines (
 -- '12345' is a local development password only. Change it before any real installation.
 -- The real password must never be in the code: it belongs in .env, which is not committed to git.
 -- Host '%' (any host) instead of '127.0.0.1': MySQL runs in a Podman container, so the API's
--- connection reaches MySQL from the host machine's network address (e.g. 192.168.0.41), not
+-- connection reaches MySQL from the host machine's network address, not
 -- from 127.0.0.1. '%' works both with and without a container. The user can still only log in
 -- with the password, and only has the privileges granted below.
 -- In a real installation: a strong password, and the MySQL port exposed only locally

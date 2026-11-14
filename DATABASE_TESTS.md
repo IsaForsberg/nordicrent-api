@@ -5,7 +5,7 @@ Three database tests that were run against MySQL. Each test describes what is te
 | Test ID | What is tested | Date run | Pass/Fail |
 |---|---|---|---|
 | DB-01 | Read with JOIN | 2026-11-14 | Pass |
-| DB-02 | Constraint error | 2026-11-13 (SQL part) | Pass |
+| DB-02 | Constraint error | 2026-11-13 (SQL), 2026-11-14 (API) | Pass |
 | DB-03 | Rollback without half-finished booking lines (+ COMMIT) | 2026-11-14 (SQL part) | Pass |
 | DB-04 (extra) | Anonymization: CHECK + UNIQUE with NULL on `customers` | 2026-11-13 | Pass |
 | DB-05 (extra) | Constraints on `bookings`: duration CHECK, FK on insert, RESTRICT on delete | 2026-11-13 | Pass |
@@ -79,7 +79,39 @@ SELECT * FROM equipment;
 2. `equipment` was empty.
 3. The row was saved with `equipment_id` 1 and `status` = `available`.
 
-**API part (TODO, step 4):** send the same negative price to `POST /api/equipment` with curl, and document the JSON error response and status code.
+**API part (2026-11-14):** the same rule tested through `POST /api/equipment`, with the API running (`node src/server.js`) and the seed data loaded. At this point the route had no JavaScript validation yet, so the value goes straight to MySQL and the `CHECK` constraint is what stops it. The route's `catch` block passes the error to `dbFailure()`, which maps known MySQL error codes to HTTP status codes:
+
+| MySQL error (`error.code`) | Meaning | HTTP status |
+|---|---|---|
+| `ER_CHECK_CONSTRAINT_VIOLATED` (3819), `ER_NO_REFERENCED_ROW_2` (1452) | The data the client sent is invalid | 400 |
+| `ER_DUP_ENTRY` (1062), `ER_ROW_IS_REFERENCED_2` (1451) | The data conflicts with existing rows | 409 |
+| anything else | Unexpected server/database error | 500 |
+
+```bash
+# A. Negative price
+curl -i -X POST http://localhost:3007/api/equipment \
+  -H "Content-Type: application/json" \
+  -d '{"category_id": 1, "depot_id": 1, "model_name": "Test Kayak", "daily_price": -50, "purchase_date": "2026-11-14"}'
+
+# B. Category that does not exist
+curl -i -X POST http://localhost:3007/api/equipment \
+  -H "Content-Type: application/json" \
+  -d '{"category_id": 999, "depot_id": 1, "model_name": "Test Kayak", "daily_price": 350, "purchase_date": "2026-11-14"}'
+```
+
+**Expected result:**
+- A: `400 Bad Request` with a generic JSON error. The server log names `chk_equipment_daily_price`. No row is saved.
+- B: `400 Bad Request` with a generic JSON error. The server log names `fk_equipment_category`. No row is saved.
+- The client never sees the MySQL message (no table names, constraint names or other database details).
+
+**Actual result (API, 2026-11-14):**
+
+| | Client (status + body) | Server terminal |
+|---|---|---|
+| A | `HTTP/1.1 400 Bad Request`, `{"error":"Database rejected the data input"}` | `POST /api/equipment failed: Check constraint 'chk_equipment_daily_price' is violated.` |
+| B | `HTTP/1.1 400 Bad Request`, `{"error":"Database rejected the data input"}` | `POST /api/equipment failed: Cannot add or update a child row: a foreign key constraint fails (... CONSTRAINT fk_equipment_category FOREIGN KEY (category_id) REFERENCES categories (category_id) ON DELETE RESTRICT)` |
+
+**Note:** the first run of test A, before `dbFailure()` was added, returned `500 Internal Server Error`. That was misleading, since nothing was wrong with the server: the client sent invalid data. The `CHECK` constraint is kept as a second layer of protection (defense in depth), even when JavaScript validation is added to the route: if the validation misses a case, or data is inserted another way, the database still refuses the row and the API still answers 400.
 
 ---
 
