@@ -99,8 +99,24 @@ app.delete('/api/equipment/:id', async (req, res) => {
       'INSERT INTO bookings (customer_id, start_date, end_date) VALUES (?, ?, ?)',
       [Number(req.body.customer_id), req.body.start_date, req.body.end_date ]
     );
-    const bookingId = result.insertId
+     const bookingId = result.insertId
 
+ const equipment_ids = req.body.equipment_ids;
+
+for (const equipmentId of equipment_ids) {
+  
+  const [result] = await connection.execute(
+    `INSERT INTO booking_lines (booking_id, equipment_id, daily_price)
+     SELECT ?, equipment_id, daily_price
+     FROM equipment
+     WHERE equipment_id = ? AND status <> 'retired' AND status <> 'maintenance'`,
+    [bookingId, Number(equipmentId)]
+  );
+
+  if (result.affectedRows === 0) {
+    throw new Error('Something went wrong');
+  }
+}
     await connection.commit()
     return res.status(201).json({ booking_id: bookingId});
   } catch (error) {
@@ -130,7 +146,5 @@ async function start() {
     //await closeMongo().catch(() => {});
     process.exitCode = 1;
   });
-
-
 
 
