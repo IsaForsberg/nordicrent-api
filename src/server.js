@@ -60,7 +60,7 @@ app.put('/api/equipment/:id', async (req, res) => {
     return res.status(400).json({ error: 'Valid equipment id in the URL and valid fields required: category_id, depot_id, model_name, daily_price, purchase_date' });
   }
   try {
-        const affectedRows = await equipmentRepository.update(req.params.id, req.body)
+    const affectedRows = await equipmentRepository.update(req.params.id, req.body)
     if (affectedRows === 0) {
       return res.status(404).json({ error: 'Equipment not found or is retired' });
     }
@@ -84,6 +84,31 @@ app.delete('/api/equipment/:id', async (req, res) => {
   } catch (error) {
     console.error('DELETE /api/equipment failed:', error.message)
     return dbFailure(error, res);
+  }
+});
+
+
+ app.post('/api/bookings', async (req, res) => {
+      if (!validBooking(req.body)) {
+    return res.status(400).json({ error: 'Missing or invalid fields. Required: customer_id, equipment_ids, start_date, end_date' });
+  }
+  const connection = await pool.getConnection()
+  try {
+      await connection.beginTransaction()
+      const [result] = await connection.execute(
+      'INSERT INTO bookings (customer_id, start_date, end_date) VALUES (?, ?, ?)',
+      [Number(req.body.customer_id), req.body.start_date, req.body.end_date ]
+    );
+    const bookingId = result.insertId
+
+    await connection.commit()
+    return res.status(201).json({ booking_id: bookingId});
+  } catch (error) {
+    await connection.rollback()
+    console.error('POST /api/bookings failed:', error.message)
+   return dbFailure(error, res);
+  } finally {
+    connection.release()
   }
 });
 

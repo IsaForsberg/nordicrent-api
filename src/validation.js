@@ -30,13 +30,14 @@ function validEquipment(body) {
 
 function validBooking(body) {
   return isObject(body)
-    && positiveId(body.booking_id)
+    && positiveId(body.customer_id)
     && Array.isArray(body.equipment_ids)
     && body.equipment_ids.length >= 1
     && body.equipment_ids.length <= 10
     && body.equipment_ids.every(positiveId)
     && validDate(body.start_date)
     && validDate(body.end_date)
+    && body.end_date > body.start_date
     && new Set(body.equipment_ids.map(Number)).size === body.equipment_ids.length;
 }
 

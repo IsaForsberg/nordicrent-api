@@ -177,6 +177,13 @@ Körs i MySQL och resultatet visas. De behöver **inga** egna API-rutter.
 - [x] **Validering i två lager** (2026-11-14):
   - **Lager 1, `src/validation.js`:** körs före `try`, stoppar fel data med 400 innan MySQL nås. `positiveId`, `isObject`, `validDate` (egen hjälpfunktion, återanvänds i bokningar), `validEquipment` (id:n positiva heltal, `model_name` 1–80 tecken, pris ett tal 0–99999.99, datum `ÅÅÅÅ-MM-DD`).
   - **Lager 2, constraints i MySQL + `dbFailure`:** reservskydd (defense in depth) om valideringen missar något. Prisregeln i JS är samma som CHECK:en (`>= 0`, gratis artiklar som hjälm tillåts).
+- [x] **`validBooking`** (2026-11-15). Body: `{ "customer_id": 1, "start_date": "2026-11-20", "end_date": "2026-11-22", "equipment_ids": [3, 7] }`
+  - `status` och `created_at` skickas inte av klienten, databasen sätter dem med DEFAULT.
+  - Inget pris i body:n: priset kopieras från `equipment` i backend (prissnapshot), så klienten kan inte välja ett eget pris.
+  - `equipment_ids` är en lista eftersom en bokning kan ha flera artiklar (1:N mellan `bookings` och `booking_lines`).
+  - **Max 10 artiklar per bokning, eget val:** realistiskt för en kunds bokning (ingen depå har 10 artiklar i seed-datan) och ett skydd mot överbelastning. En lista med t.ex. 100 000 id:n stoppas med 400 innan servern gör en enda databasfråga.
+  - **Dubbletter stoppas:** `new Set(equipment_ids.map(Number)).size === equipment_ids.length`. `map(Number)` behövs för att `3` och `"3"` annars räknas som olika värden. Utan regeln hade `uq_booking_equipment` gett 1062 inne i transaktionen.
+  - **`end_date > start_date`** står sist, efter `validDate`, så att båda redan är giltiga strängar. Samma regel som `chk_booking_duration`, med CHECK:en som reservskydd.
 - [ ] Tre dokumenterade databasprov i `DATABASE_TESTS.md`, med förväntat och faktiskt resultat:
   1. [x] läsning/JOIN (DB-01, 2026-11-14)
   2. [x] ett constraint-fel (DB-02, SQL 2026-11-13 + API 2026-11-14: negativt pris och okänd kategori → 400)
