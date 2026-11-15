@@ -10,6 +10,7 @@ Three database tests that were run against MySQL. Each test describes what is te
 | DB-04 (extra) | Anonymization: CHECK + UNIQUE with NULL on `customers` | 2026-11-13 | Pass |
 | DB-05 (extra) | Constraints on `bookings`: duration CHECK, FK on insert, RESTRICT on delete | 2026-11-13 | Pass |
 | DB-06 (extra) | Constraints on `booking_lines`: UNIQUE pair, RESTRICT and CASCADE | 2026-11-13 | Pass |
+| DB-07 (extra) | Overlap check against double bookings (buffer day, rollback) | 2026-11-15 | Pass |
 
 ---
 
@@ -350,3 +351,79 @@ Run 2026-11-13 after a fresh `setup.sql`, with one depot, one category, two equi
 | 2 | Equipment 1 on booking 1 a second time | Rejected by `uq_booking_equipment` | Error 1062 |
 | 3 | `DELETE FROM equipment WHERE equipment_id = 1` (used on a booking line) | Rejected by `ON DELETE RESTRICT` | Error 1451 |
 | 4 | `DELETE FROM bookings WHERE booking_id = 1` | Booking deleted; its lines deleted by `ON DELETE CASCADE`; equipment untouched | `bookings` and `booking_lines` empty, both equipment items still there |
+
+---
+
+## DB-07 (extra): Overlap check against double bookings
+
+**What is tested:** That `POST /api/bookings` refuses to book an item that is already booked for overlapping dates, including the buffer day, and that a refused booking leaves nothing behind.
+
+**Rules (decided 2026-11-14, see `PROJECT_PLAN.md`):**
+- It is the **item** that must not be rented twice at the same time. A customer may have several bookings with the same dates.
+- Only bookings with status `confirmed` or `active` block an item. `returned` and `cancelled` do not.
+- Hotel model with a buffer day: a new booking of the same item may start at the earliest the day **after** the previous `end_date`, so the item can be checked before it is rented out again.
+
+**The condition:** two bookings do *not* overlap if the new one is entirely before (`new end_date < b.start_date`) or entirely after (`new start_date > b.end_date`). Reversing that gives the overlap condition, which the route runs for every item, **before** inserting that item's booking line:
+
+```sql
+SELECT b.booking_id
+FROM booking_lines AS bl
+JOIN bookings AS b ON b.booking_id = bl.booking_id
+WHERE bl.equipment_id = ?          -- the item in this loop iteration
+  AND b.status IN ('confirmed', 'active')
+  AND b.start_date <= ?            -- new end_date
+  AND b.end_date   >= ?            -- new start_date
+```
+
+The check has to run before the insert. The new booking already exists inside the transaction with status `confirmed` and the same dates, so after the insert the query would find the booking's own line and report a conflict every time. If the query returns at least one row (`conflicts.length > 0`), the route runs `rollback()` and answers `409`.
+
+**Step 1, the query by hand (2026-11-15):** run in Database Client with fixed values, after booking 17 (items 3 and 7, 2026-11-20 → 2026-11-22) had been created:
+
+| New dates for item 3 | Expected | Actual |
+|---|---|---|
+| 2026-11-20 → 2026-11-22 (same dates) | finds booking 17 | finds 17 |
+| 2026-11-23 → 2026-11-25 (day after) | empty | empty |
+| 2026-11-22 → 2026-11-24 (starts on the return day) | finds booking 17 (buffer day) | finds 17 |
+
+**Step 2, through the API (2026-11-15):** after a fresh run of `setup.sql` and `seed.sql`, with the API running:
+
+```bash
+# A: first booking
+curl -i -X POST http://localhost:3007/api/bookings -H "Content-Type: application/json" \
+  -d '{"customer_id": 1, "start_date": "2026-11-20", "end_date": "2026-11-22", "equipment_ids": [3, 7]}'
+
+# H: same items and dates, another customer
+curl -i -X POST http://localhost:3007/api/bookings -H "Content-Type: application/json" \
+  -d '{"customer_id": 2, "start_date": "2026-11-20", "end_date": "2026-11-22", "equipment_ids": [3, 7]}'
+
+# I: starts on A's return day (buffer day)
+curl -i -X POST http://localhost:3007/api/bookings -H "Content-Type: application/json" \
+  -d '{"customer_id": 2, "start_date": "2026-11-22", "end_date": "2026-11-24", "equipment_ids": [3]}'
+
+# J: starts the day after A's return day
+curl -i -X POST http://localhost:3007/api/bookings -H "Content-Type: application/json" \
+  -d '{"customer_id": 2, "start_date": "2026-11-23", "end_date": "2026-11-25", "equipment_ids": [3]}'
+
+# K: item 7 is free on these dates, item 3 overlaps with J
+curl -i -X POST http://localhost:3007/api/bookings -H "Content-Type: application/json" \
+  -d '{"customer_id": 3, "start_date": "2026-11-23", "end_date": "2026-11-24", "equipment_ids": [7, 3]}'
+```
+
+| Case | Expected | Actual |
+|---|---|---|
+| A | 201, `booking_id` 17 | 201, `{"booking_id":17}` |
+| H | 409 | 409, `{"error":"The selected date is not available"}` |
+| I | 409 (buffer day) | 409 |
+| J | 201, `booking_id` **20** (18 and 19 were used by H and I and rolled back) | 201, `{"booking_id":20}` |
+| K | 409, and no line for item 7 left behind | 409 |
+
+**Checked afterwards in Database Client:**
+- `bookings`: the newest rows were 15, 16 (seed), 17 (A) and 20 (J). No 18, 19 or 21.
+- `booking_lines`: 22 (seed, booking 16), 23 and 24 (booking 17, items 3 and 7), 25 (booking 20, item 3). No line for item 7 from K.
+
+**What the test shows:**
+- The overlap condition works on the edges: the return day counts as booked (I), the day after is free (J).
+- **All or nothing:** in K the line for item 7 was inserted first, then item 3 was refused. The rollback removed both that line and the booking, so no half-finished booking was left.
+- **The gaps in the ids are the rollbacks.** H, I and K each inserted a booking before the conflict was found. `AUTO_INCREMENT` does not give those numbers back, so J got 20. (When the booking insert itself fails, as with customer 999 in DB-03, no number was lost.)
+
+**Not covered:** two requests for the same item at exactly the same time. Both could run the check before either has inserted its line. Locking the rows (for example `SELECT … FOR UPDATE`) would be the next step and is left to API v2.
