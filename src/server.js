@@ -114,7 +114,8 @@ for (const equipmentId of equipment_ids) {
   );
 
   if (result.affectedRows === 0) {
-    throw new Error('Something went wrong');
+    await connection.rollback()
+    return res.status(409).json({ error: 'Equipment not found or not available' });
   }
 }
     await connection.commit()

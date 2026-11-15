@@ -6,7 +6,7 @@ Three database tests that were run against MySQL. Each test describes what is te
 |---|---|---|---|
 | DB-01 | Read with JOIN | 2026-11-14 | Pass |
 | DB-02 | Constraint error | 2026-11-13 (SQL), 2026-11-14 (API) | Pass |
-| DB-03 | Rollback without half-finished booking lines (+ COMMIT) | 2026-11-14 (SQL part) | Pass |
+| DB-03 | Rollback without half-finished booking lines (+ COMMIT) | 2026-11-14 (SQL), 2026-11-15 (API) | Pass |
 | DB-04 (extra) | Anonymization: CHECK + UNIQUE with NULL on `customers` | 2026-11-13 | Pass |
 | DB-05 (extra) | Constraints on `bookings`: duration CHECK, FK on insert, RESTRICT on delete | 2026-11-13 | Pass |
 | DB-06 (extra) | Constraints on `booking_lines`: UNIQUE pair, RESTRICT and CASCADE | 2026-11-13 | Pass |
@@ -204,7 +204,64 @@ SELECT COUNT(*) FROM booking_lines;
 - **`LAST_INSERT_ID()` changes after every insert with `AUTO_INCREMENT`.** After the booking line insert it returns the new `booking_line_id`, not the booking id. That is why the last `SELECT` in B uses 18 written out.
 - **`COMMIT` does not check for earlier errors.** It saves whatever succeeded. Deciding between `COMMIT` and `ROLLBACK` is the backend's job: in step 5 the booking route catches the error and runs `ROLLBACK` itself.
 
-**API part (TODO, step 5):** run the same two cases through `POST /api/bookings` with curl (one with a non-existing equipment id, one valid), and document the status codes and the row counts afterwards.
+**API part (2026-11-15):** the same idea tested through `POST /api/bookings`, with the API running (`node src/server.js`) after a fresh run of `database/setup.sql` followed by `database/seed.sql`. The route runs everything on **one** connection from the pool (`pool.getConnection()`), because a transaction only exists on the connection that started it:
+
+1. `beginTransaction()`
+2. `INSERT INTO bookings …`, and the new id is read from `result.insertId`
+3. One `INSERT INTO booking_lines … SELECT … FROM equipment WHERE equipment_id = ? AND status <> 'retired' AND status <> 'maintenance'` per item in `equipment_ids`. The daily price is copied from `equipment` inside MySQL, so the client never sends a price.
+4. If an insert gives `affectedRows === 0`, the route throws an error itself.
+5. `commit()` if all inserts succeeded, otherwise `rollback()` in `catch`. `release()` in `finally` gives the connection back to the pool in both cases.
+
+Unlike the SQL part, the failing case in the API gives **no MySQL error**. `INSERT … SELECT` for an item that does not exist (or is not bookable) finds 0 rows and inserts 0 rows, which is not an error. The foreign key never gets anything to check. Without the `affectedRows` check, the route would commit a booking with only some of its lines.
+
+```bash
+# Case A (COMMIT): valid booking with two items
+curl -i -X POST http://localhost:3007/api/bookings \
+  -H "Content-Type: application/json" \
+  -d '{"customer_id": 1, "start_date": "2026-11-20", "end_date": "2026-11-22", "equipment_ids": [3, 7]}'
+
+# Case F (ROLLBACK): the second item does not exist
+curl -i -X POST http://localhost:3007/api/bookings \
+  -H "Content-Type: application/json" \
+  -d '{"customer_id": 1, "start_date": "2026-11-25", "end_date": "2026-11-27", "equipment_ids": [3, 99]}'
+
+# Case G (ROLLBACK): the second item exists but is in maintenance (item 8)
+curl -i -X POST http://localhost:3007/api/bookings \
+  -H "Content-Type: application/json" \
+  -d '{"customer_id": 1, "start_date": "2026-11-25", "end_date": "2026-11-27", "equipment_ids": [3, 8]}'
+```
+
+Checked afterwards in Database Client:
+
+```sql
+SELECT * FROM bookings ORDER BY booking_id DESC LIMIT 3;
+SELECT * FROM booking_lines ORDER BY booking_line_id DESC LIMIT 3;
+```
+
+**Expected result:**
+- A: `201` with `{"booking_id": 17}`. Booking 17 and two booking lines (23 and 24), with the daily prices of items 3 and 7.
+- F and G: an error response. In both cases the booking insert and the line for item 3 succeed first, then the second line inserts 0 rows and the route rolls back. No new booking and no line for item 3 are left behind.
+
+**Actual result (2026-11-15):**
+- A: `201`, `{"booking_id":17}`. `booking_lines` showed lines 23 and 24 for booking 17.
+- F and G: `500`, `{"error":"Database operation failed"}`. The server terminal showed `POST /api/bookings failed: Something went wrong` for each case.
+- After F and G: the latest booking was still 17 and the latest booking line still 24. **The rollback worked: no half-finished booking.**
+
+**Problem found by the test:** the status code. `500` means that the server failed, but here the server worked correctly and the client asked for an item that cannot be booked. The thrown error had no MySQL `error.code`, so `dbFailure()` did not recognize it and fell through to 500. The server log also said `MySQL failure`, although MySQL never reported an error.
+
+**Fix:** the `throw` was removed. When `affectedRows === 0`, the route now runs `rollback()` itself and answers `409` directly, the same pattern as `PUT /api/equipment/:id` (`affectedRows === 0` → 404). This is not a MySQL error, so it never reaches `catch`. `catch` and `dbFailure()` still handle real MySQL errors, and `finally` releases the connection in every case. **409 Conflict** was chosen because the request conflicts with the current state of the data (the item is missing or not bookable), and double bookings are planned to give 409 as well.
+
+**Actual result after the fix (2026-11-15):** after a fresh run of `setup.sql` and `seed.sql`:
+
+| Case | Body | Status | Response |
+|---|---|---|---|
+| A | `[3, 7]`, customer 1 | 201 | `{"booking_id":17}` |
+| F | `[3, 99]` | 409 | `{"error":"Equipment not found or not available"}` |
+| G | `[3, 8]` | 409 | `{"error":"Equipment not found or not available"}` |
+| E | customer 999 | 400 | `{"error":"Database rejected the data input"}` (1452 via `dbFailure()`) |
+
+- Afterwards the latest booking was 17 and the latest booking line 24. F, G and E left nothing behind.
+- F and G no longer print anything in the server terminal, since they never reach `catch`. Only E logs `POST /api/bookings failed: Cannot add or update a child row: a foreign key constraint fails`.
 
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
