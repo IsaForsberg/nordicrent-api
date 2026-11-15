@@ -5,7 +5,7 @@ require('dotenv').config();
 const express = require('express');
 const pool = require('./config/db');
 const EquipmentRepository = require('./repositories/equipmentRepository')
-//const { connectMongo, reportsCollection, closeMongo } = require('./connections/mongo');
+const { connectMongo, reportsCollection, closeMongo } = require('./config/mongo');
 const { positiveId, validEquipment, validBooking, validReport} = require('./validation');
 
 
@@ -148,7 +148,7 @@ for (const equipmentId of equipment_ids) {
   const PORT = Number(process.env.PORT || 3007);
 async function start() {
   await pool.query('SELECT 1');
-  //await connectMongo();
+  await connectMongo();
   return app.listen(PORT, () => {
     console.log(`NordicRent is API running at http://localhost:${PORT}/api/health`);
   });
@@ -156,10 +156,9 @@ async function start() {
 
 
   start().catch(async (error) => {
-    console.error('Startup failed:', error.message);
-   // console.error('Startup failed:', error.code || error.message);
+   console.error('Startup failed:', error.code || error.message);
     await pool.end();
-    //await closeMongo().catch(() => {});
+    await closeMongo().catch(() => {});
     process.exitCode = 1;
   });
 
