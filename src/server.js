@@ -105,6 +105,21 @@ app.delete('/api/equipment/:id', async (req, res) => {
 
 for (const equipmentId of equipment_ids) {
   
+  const [conflicts] = await connection.execute(
+        `SELECT b.booking_id
+     FROM booking_lines AS bl
+     JOIN bookings AS b ON b.booking_id = bl.booking_id
+     WHERE bl.equipment_id = ?
+       AND b.status IN ('confirmed', 'active')
+       AND b.start_date <= ?
+       AND b.end_date   >= ?`,
+       [Number(equipmentId), req.body.end_date, req.body.start_date]
+  );
+
+  if(conflicts.length > 0){
+     await connection.rollback()
+     return res.status(409).json({ error: 'The selected date is not available' });
+  }
   const [result] = await connection.execute(
     `INSERT INTO booking_lines (booking_id, equipment_id, daily_price)
      SELECT ?, equipment_id, daily_price

@@ -263,6 +263,23 @@ Körs i MySQL och resultatet visas. De behöver **inga** egna API-rutter.
     - **Buffertdag:** en ny bokning av samma artikel får starta tidigast **dagen efter** `end_date` på den förra. Bokad t.o.m. 5/12 → nästa kan starta 6/12, inte 5/12.
     - **Varför:** artikeln ska kontrolleras (tillståndsrapport) efter återlämning innan den lämnas ut igen. Lämnas den in sent på kvällen hinner kontrollen inte göras förrän dagen efter.
     - **Att tänka på i steg 5:** buffertregeln gör att även en bokning som börjar *samma dag* som en annan slutar räknas som krock. Det ska synas i villkoret (`<` eller `<=`?).
+  - **Härlett 2026-11-15: överlappsvillkoret** (mitt eget resonemang, till manuset)
+    - **Vad är det som inte får hända?** Att en **artikel** är utlånad två gånger samtidigt. En kund får ha flera bokningar med samma datum (t.ex. kajak på förmiddagen, tält på eftermiddagen). Därför räcker inte `bookings` ensam: artikeln står i `booking_lines`, datumen och statusen i `bookings` → JOIN på `booking_id`.
+    - **Vilka bokningar blockerar?** Bara `confirmed` och `active`. `returned` är redan tillbaka, `cancelled` blev aldrig av.
+    - **Tidslinje** (befintlig bokning 20–22 nov):
+
+      | Ny bokning | Resultat | Varför |
+      |---|---|---|
+      | 18–19 | ok | helt före |
+      | 18–20 | krock | slutar samma dag som den befintliga börjar |
+      | 20–22 | krock | samma datum |
+      | 22–24 | krock | börjar samma dag som den befintliga slutar (buffertdag) |
+      | 23–25 | ok | helt efter |
+      | 18–25 | krock | omsluter den befintliga |
+
+    - **Ok** = helt före **eller** helt efter: `ny end_date < b.start_date` **OR** `ny start_date > b.end_date`. `<` och `>` (inte `<=`/`>=`) ger buffertdagen: samma dag räknas som krock.
+    - **Krock** = motsatsen, varken helt före eller helt efter. När villkoret vänds blir `<` till `>=`, `>` till `<=` och `OR` till `AND`: `ny end_date >= b.start_date` **AND** `ny start_date <= b.end_date`.
+    - I SQL skrivs det med kolumnen först: `b.start_date <= ny end_date AND b.end_date >= ny start_date`.
 - [x] Vad är en bokningsrad? Bokningar ↔ utrustning är **N:M**, kopplingstabellen `booking_lines` (`booking_id` FK, `equipment_id` FK) = bokningsraderna. Kunden hänger på bokningen (1:N), inte på raden.
 - [x] **`booking_line_id` som PK, behövs den fortfarande?** Beslut 2026-11-13: **ja, eget id (`booking_line_id`) + `UNIQUE (booking_id, equipment_id)`**. Det ursprungliga skälet (MongoDB-rapporten per bokningsrad) försvann när rapporten kopplades till `equipmentId`, men andra skäl finns kvar:
   - En rad kan pekas ut med **ett** id, t.ex. för att avboka enstaka artiklar i en bokning (se Förbättringsförslag) eller söka på en rad.
