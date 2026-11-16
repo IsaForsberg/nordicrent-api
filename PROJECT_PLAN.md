@@ -13,6 +13,7 @@
 **Före redovisningen (torsdag 19/11):**
 - [ ] **Manus** utifrån `oral_presentation_guide.md` (se tabellen nedan). Tis–ons.
 - [ ] **Öva på lärarens frågor** (se nedan), med egna ord.
+- [ ] **Demofil med alla anrop till redovisningen** (görs tillsammans i genomgången, tisdag). Ligger **utanför** repot, lämnas inte in. Anropen i samma ordning som de 7 demopunkterna, med `BASE=http://localhost:3007` överst. `curl -i` där statuskoden är poängen (201/400/404/409), `curl -s … | jq` för läsbar JSON. Börjar med återställning (`setup.sql` + `seed.sql`) så att id:n stämmer med det som visas.
 - [ ] **Kommentarer i koden: gå igenom tillsammans** (också till API v2, så jag kommer ihåg varför). Förslag på var:
   - `src/server.js`: `dbFailure` (varför 400/409/500), bokningstransaktionen (`getConnection` i stället för `pool.execute`, varför krockfrågan körs före INSERT, `INSERT … SELECT` för priset, `affectedRows === 0` → rollback), `POST /api/reports` (varför MySQL-kollen först: ingen FK mellan databaserna), GET-rapporter (`Number()` eftersom `req.params` alltid är text, 200 med `[]`)
   - `src/validation.js`: en rad per funktion om varför (max 10 artiklar, `Set` mot dubbletter, `length >= 1` före `every` eftersom `every` på `[]` alltid är `true`)
