@@ -1,6 +1,6 @@
 # NordicRent — ER Diagram
 
-The MySQL tables match `database/setup.sql` (updated 2026-11-13). `TODO` remains only for the MongoDB document, whose fields are decided in step 6.
+The MySQL tables match `database/setup.sql`. The MongoDB document `condition_reports` matches what `POST /api/reports` saves.
 
 ```mermaid
 erDiagram
@@ -60,13 +60,13 @@ erDiagram
     }
 
     condition_reports {
-        TODO _id PK "created automatically by MongoDB"
-        INT equipmentId "points to equipment, not a real FK"
-        TODO notes "free text"
-        TODO checklist "nested object, differs per category"
-        TODO damageFlag "damage flag"
-        TODO photoUrls "optional, list of URLs"
-    } 
+        ObjectId _id PK "created automatically by MongoDB"
+        Number equipmentId "points to equipment, not a real FK (checked against MySQL)"
+        String notes "free text, 1-1000 characters"
+        Object checklist "true/false per item, differs per category"
+        Boolean damageFlag "true = the item is damaged"
+        Date createdAt "set by the backend, newest first in GET"
+    }
 ```
 
 The total price is not stored as a column. It is calculated from `booking_lines.daily_price` × number of days (`end_date` − `start_date`).
@@ -90,17 +90,16 @@ The total price is not stored as a column. It is calculated from `booking_lines.
 
 The database stores relationships as IDs. A row in `equipment` only has `category_id` and `depot_id`, which are numbers, for example `category_id = 1` and `depot_id = 1`. A frontend that lists equipment wants to show the user "Kayak" and "Umeå", not 1 and 1.
 
-The backend bridges the gap. In `GET /api/equipment` it joins `equipment` with `categories` and `depots`, so that the category name and the depot's city come from their own tables, and sends the result back as JSON that a frontend can show directly:
+The backend bridges the gap. In `GET /api/equipment` it joins `equipment` with `categories` and `depots`, so that the category name and the depot's city come from their own tables, and sends the result back as JSON that a frontend can show directly. One item from the response:
 
 ```json
 {
   "equipment_id": 1,
   "model_name": "Prijon Kodiak",
-  "daily_price": "350.00",
+  "city": "Umeå",
   "status": "available",
-  "category": "Kayak",
-  "depot": "NordicRent Centrum",
-  "city": "Umeå"
+  "current_daily_price": "350.00",
+  "category_name": "Kayak"
 }
 ```
 
@@ -108,4 +107,4 @@ This is also why the normalized design works in practice: the category name and 
 
 The short text about 3NF, relationships, the MongoDB choice and the transaction is in the [README](../README.md#database-design).
 
-For the submission, the diagram must be exported as an image or PDF.
+The diagram exported as an image: [`er-diagram-nordicrent.png`](er-diagram-nordicrent.png).

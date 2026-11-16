@@ -116,7 +116,7 @@ curl -X POST $BASE/api/equipment \
 # Update equipment 2 (all five fields are required) → 200
 curl -X PUT $BASE/api/equipment/2 \
   -H "Content-Type: application/json" \
-  -d '{"category_id": 1, "depot_id": 1, "model_name": "Prijon Kodiak", "daily_price": 375, "purchase_date": "2024-04-15"}'
+  -d '{"category_id": 1, "depot_id": 1, "model_name": "Point 65 Mercury", "daily_price": 425, "purchase_date": "2024-05-02"}'
 
 # Retire equipment 9 (status becomes "retired", the row is kept) → 200
 curl -X DELETE $BASE/api/equipment/9
