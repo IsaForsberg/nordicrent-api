@@ -12,9 +12,10 @@ function isObject(value) {
 }
 
 function validDate(value) {
-      return typeof value === 'string'
+  return typeof value === 'string'
     && /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
+
 function validEquipment(body) {
   return isObject(body)
     && positiveId(body.category_id)
@@ -40,9 +41,6 @@ function validBooking(body) {
     && body.end_date > body.start_date
     && new Set(body.equipment_ids.map(Number)).size === body.equipment_ids.length;
 }
-
-
-
 
 function validReport(body) {
   return isObject(body)

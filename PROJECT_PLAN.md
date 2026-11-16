@@ -4,7 +4,55 @@
 
 > Uppdaterad 2026-11-09 efter lärarens nya version av uppgiften. Den nya versionen har färre API-rutter och fokuserar på databasen: SQL, transaktion, databasprov och MongoDB. Det som inte längre krävs finns under [Sparat till API v2](#sparat-till-api-v2-nästa-kurs).
 >
-> **Senast uppdaterad 2026-11-14 (lördag kväll):** steg 1–4 klara, inklusive OOP-klassen (utom ER-export). Nästa: steg 5, bokningstransaktionen.
+> **Senast uppdaterad 2026-11-16 (måndag förmiddag):** **alla 7 rutter klara.** Steg 1–6 klara (utom ER-export). Kvar: dokumentation, kommentarer och förberedelse inför redovisningen, se [Kvar att göra](#kvar-att-göra).
+
+---
+
+## Kvar att göra
+
+**Före redovisningen (torsdag 19/11):**
+- [ ] **Manus** utifrån `oral_presentation_guide.md` (se tabellen nedan). Tis–ons.
+- [ ] **Öva på lärarens frågor** (se nedan), med egna ord.
+- [ ] **Kommentarer i koden: gå igenom tillsammans** (också till API v2, så jag kommer ihåg varför). Förslag på var:
+  - `src/server.js`: `dbFailure` (varför 400/409/500), bokningstransaktionen (`getConnection` i stället för `pool.execute`, varför krockfrågan körs före INSERT, `INSERT … SELECT` för priset, `affectedRows === 0` → rollback), `POST /api/reports` (varför MySQL-kollen först: ingen FK mellan databaserna), GET-rapporter (`Number()` eftersom `req.params` alltid är text, 200 med `[]`)
+  - `src/validation.js`: en rad per funktion om varför (max 10 artiklar, `Set` mot dubbletter, `length >= 1` före `every` eftersom `every` på `[]` alltid är `true`)
+  - `src/repositories/equipmentRepository.js`: vad klassen ansvarar för (bara databasen, ingen HTTP), vad varje metod returnerar, soft delete i `retire`
+  - `database/setup.sql`: kort motivering vid varje `ON DELETE` och `CHECK`
+  - `database/queries.sql`: rubrik på de två transaktionsexemplen längst ner (ROLLBACK resp. COMMIT)
+- [ ] **ER-diagrammet som bild/PDF** (`docs/`), behövs för demopunkt 1.
+- [ ] **Testa sorteringen i GET-rapporter:** skicka två rapporter för samma artikel, kolla att den nyaste kommer först.
+- [ ] **Bestämma om `SHOW GRANTS` sist i `setup.sql` ska vara kvar** (visar rättigheterna, men är ingen del av schemat).
+- [ ] **Bestämma hur resultaten i `queries.sql` ska visas** (fråga läraren: skärmdump, README eller kommentar).
+- [ ] **Commit + push** av dagens ändringar (rapportrutterna och formateringen).
+
+**Före inlämning (söndag 22/11):**
+- [ ] **Inlämningstexten med ER-diagrammet:** 3NF, relationer, MongoDB-val, transaktion, backend↔frontend (JOIN-exemplet).
+- [ ] **README, TODO-sektionerna:** Tech stack, Installation, Environment variables, Starting and stopping, Setting up and resetting, Example requests (curl), 3NF-beroenden, Backend and frontend, SQL queries, Transaction design, Error handling, Object-oriented design, Security.
+- [ ] **DATABASE_TESTS.md (valfritt):** ett DB-08 för MongoDB (POST 201/404/400 + GET), resultaten finns från 2026-11-16.
+- [ ] **ZIP eller GitHub-länk**, kolla att `.env` och `node_modules/` inte är med.
+
+### Redovisningen enligt `oral_presentation_guide.md` (läst 2026-11-16)
+
+Fokus: databaserna och min egen kod. Inte API-dokumentation, testsvit, middleware, Promises eller deployment (= API v2).
+
+| # | Visa | Vad jag har |
+|---|---|---|
+| 1 | ER-diagram och 3NF | `docs/er-diagram.md` (PDF kvar), "Utkast: varför varje tabell finns" nedan |
+| 2 | En JOIN och två nästlade frågor | `queries.sql` fråga 1, 3 och 4 |
+| 3 | Parameteriserad CRUD | utrustningsrutterna + `EquipmentRepository` (`?` överallt) |
+| 4 | Bokningstransaktion: COMMIT + avsiktlig ROLLBACK | `POST /api/bookings`, DB-03 (fall A/F/G), DB-07 (H/I/K) |
+| 5 | Ett MongoDB-dokument | rapporten för artikel 1 i `condition_reports` (VS Code) |
+| 6 | Ett litet Express-anrop mot databasen | `GET /api/equipment` med curl (också backend↔frontend-exemplet) |
+| 7 | Ett databastest och varför resultatet är korrekt | DB-01, DB-02 eller DB-03 |
+
+Berätta också: hur backend och frontend hänger ihop (JOIN → JSON med namn i stället för id), och hur en klass används för databasåtkomst (`EquipmentRepository`).
+
+**Frågor att öva på:**
+- Varför normaliserade du den här tabellen?
+- Vilken constraint skyddar data? Vad skyddar `?` i SQL?
+- Vad återställs vid ROLLBACK?
+- Varför passar rapporten i MongoDB?
+- Kan du förklara och visa din egen kod?
 
 ---
 
@@ -17,9 +65,16 @@
   - [ ] Kvar: fråga läraren hur resultaten ska "visas" (skärmdump, text i README eller kommentar i filen?)
 - [x] **Steg 4 – Express-koppling:** servern startar, ansluter med `mysql2` som appanvändaren, alla fyra utrustningsrutterna klara med `?`-parametrar, validering och felhantering (2026-11-14)
   - [x] OOP-klassen `EquipmentRepository` klar 2026-11-14 kväll (all utrustnings-SQL flyttad dit)
-- [ ] **Steg 5 – Bokningstransaktionen:** `POST /api/bookings` som riktig transaktion, visa att rollback tar bort alla delresultat ← **NÄSTA (söndag 15/11)**
-- [ ] **Steg 6 – MongoDB:** spara och läsa tillståndsrapporter via de två rapportrutterna, motivera varför de passar som dokument
-- [ ] **Steg 7 – Kontroll och presentation:** tre databasprov i `DATABASE_TESTS.md`, README med start/stopp och databasinställningar, träna på att förklara SQL- och dataval
+- [x] **Steg 5 – Bokningstransaktionen:** `POST /api/bookings` som riktig transaktion, visa att rollback tar bort alla delresultat (2026-11-15)
+  - [x] Validering (`validBooking`), bokning + rader med prissnapshot, rollback vid artikel som saknas/inte går att boka (409), dubbelbokning med buffertdag (409). Testat i DB-03 (API-delen) och DB-07.
+- [x] **Steg 6 – MongoDB:** spara och läsa tillståndsrapporter via de två rapportrutterna, motivera varför de passar som dokument (klart 2026-11-16)
+  - [x] Del 1: `src/config/mongo.js` (en klient, `connectMongo`, `reportsCollection`, `closeMongo`), databas `nordicrent_docs`, collection `condition_reports` (2026-11-15)
+  - [x] Del 2: `connectMongo()` i `start()` och `closeMongo()` vid startfel. Testat: med Mongo igång startar servern, med `mongod stop` vägrar den starta (`ECONNREFUSED 127.0.0.1:27017` efter ca 45 s) i stället för att köra halvt
+  - [x] Del 3: `POST /api/reports` (2026-11-16). `validReport` → `equipmentRepository.findById(req.body.equipmentId)` (ny metod, `status <> 'retired'`) → 404 om artikeln saknas eller är retired → `insertOne` → `201` + `report_id`. Testat: A 201, B (999) 404, C (12, retired) 404, D (`checklist: {}`) 400, E (`damageFlag: "yes"`) 400.
+  - [x] Del 4: `GET /api/reports/equipment/:id` (2026-11-16). `positiveId` → `find({ equipmentId: Number(...) }).sort({ createdAt: -1 }).toArray()`. Testat: 1 → 200 med rapporten, 2 → 200 med `[]`, `abc` → 400.
+  - [x] Småfix: bara en `console.error` kvar i `.catch` i `start()`
+- [ ] **Steg 7 – Kontroll och presentation:** tre databasprov i `DATABASE_TESTS.md` (klara), README med start/stopp och databasinställningar, träna på att förklara SQL- och dataval ← **NU**
+  - [x] Koden formaterad 2026-11-16 (indrag, semikolon, mellanslag), ingen logik ändrad
 
 ---
 
@@ -55,7 +110,7 @@
 - [x] En bokning kan innehålla en eller flera artiklar (bokningsrader)
 - [x] Status som ENUM: `confirmed`, `active`, `returned`, `cancelled`
 - [x] Totalpriset beräknas från bokningsraderna (lagras **inte** som kolumn, räknas fram med en fråga: dygnspris från `booking_lines` × antal dygn)
-- [ ] En utrustning som redan är uthyrd får inte bokas igen (krav). Full kontroll av överlappande datum = fördjupning (VG), se Öppna frågor.
+- [x] En utrustning som redan är uthyrd får inte bokas igen (krav). Full kontroll av överlappande datum = fördjupning (VG), gjord 2026-11-15, se Öppna frågor och DB-07.
 - [x] Tidpunkt när bokningen gjordes (sätts automatiskt)
 - [x] Kopplad till en kund (1:N)
 
@@ -68,16 +123,25 @@
 - [x] Dygnspriset som gällde vid bokningstillfället
 
 ### Tillståndsrapporter (MongoDB)
-- [ ] Rapporten gäller en **utrustning**: `equipmentId` (inte bokningsraden längre)
-- [ ] `equipmentId` är en applikationsreferens, **inte** en främmande nyckel. MongoDB vet inte om att artikeln finns i MySQL, så det är appen som ansvarar för att id:t stämmer.
-- [ ] `notes`: fritextanteckningar
-- [ ] `checklist`: checklista som skiljer sig per kategori, t.ex.:
+- [x] Rapporten gäller en **utrustning**: `equipmentId` (inte bokningsraden längre)
+- [x] `equipmentId` är en applikationsreferens, **inte** en främmande nyckel. MongoDB vet inte om att artikeln finns i MySQL, så det är appen som ansvarar för att id:t stämmer.
+- [x] `notes`: fritextanteckningar
+- [x] `checklist`: checklista som skiljer sig per kategori, t.ex.:
   - kajak: skrov, paddlar
   - elcykel: batterihälsa, chassi
   - tält: duk, tältpinnar, allt material inlämnat
-- [ ] `damageFlag`: skadeflagga
-- [ ] Eventuella foto-URL:er (valfritt, inte krav längre). Bilden sparas inte i databasen, bara en **länk** (URL). Kan vara flera bilder → en lista med URL:er.
-- [ ] MySQL och MongoDB behöver **inte** ingå i samma transaktion
+- [x] `damageFlag`: skadeflagga
+- [ ] Eventuella foto-URL:er (valfritt, inte krav längre, inte gjort). Bilden sparas inte i databasen, bara en **länk** (URL). Kan vara flera bilder → en lista med URL:er.
+- [x] MySQL och MongoDB behöver **inte** ingå i samma transaktion
+
+**Beslut 2026-11-16 (`validReport`, alla fyra fält obligatoriska):**
+- **`equipmentId`** (uppgiftens namn). I MySQL heter kolumnen fortfarande `equipment_id`. Namnen möts i rutten: `findById(req.body.equipmentId)`.
+- **`checklist` är ett objekt** med true/false, t.ex. `{ "hull": true, "paddle": false }`. Valt i stället för en lista med texter eftersom objektet visar både *vad* som kontrollerades och *hur det gick* (att paddeln saknas syns). Valideras med `isObject` → `Object.values(...).length >= 1` → `Object.values(...).every(item => typeof item === 'boolean')`. Längdkollen måste ligga före och utanför `every`: `every` på en tom lista blir alltid `true`, så `{}` hade annars godkänts.
+- **`damageFlag`** är en boolean (en flagga: ja/nej). *Vilken* skada står i `notes`, *vilken del* i `checklist`. Obligatorisk, eftersom en rapport utan flagga inte säger om artikeln är skadad eller om ingen kollade.
+- **Ingen rapport för en `retired` artikel:** den finns inte längre i depån.
+- **`createdAt: new Date()`** sätts av backend, används för sortering (nyast först). Sparas i UTC.
+- **Felhantering:** `catch` svarar 500 utan `dbFailure`, eftersom en `SELECT` inte kan bryta mot constraints. 400 vore fel: det är inte klientens fel om en databas kraschar.
+- **Lärdomar:** fel fältnamn i `find` (`equipment_id`) kraschar inte, Mongo returnerar bara `[]` (schemalöst). `NumberInt` i VS Code är bara hur skalet visar ett heltal, ingen JS-funktion. `req.params` finns bara för `:id` i URL:en, i en POST ligger datan i `req.body`.
 
 **Beslut och insikter (2026-11-11):**
 - Rapporterna finns **bara** i MongoDB. Ingen tabell för rapporter i `setup.sql`.
@@ -86,8 +150,9 @@
 - Nästlat värde, t.ex. tältpinnar: `pinnar: { skick: "ok", antal: 7 }` (ett objekt inuti ett objekt).
 - Ny kategori (t.ex. SUP-brädor; skidor finns redan i seed-datan sedan 2026-11-13): i MySQL hade checklistan krävt en ny tabell eller nya kolumner. I MongoDB ändras ingenting i databasen, bara valideringen i Express.
 - **Strukturen ("mallen") finns i Express, inte i MongoDB.** MongoDB sparar det den får. I MySQL ansvarar databasen för strukturen, i MongoDB ansvarar backend.
-- Validering vid `POST /api/reports`, i `src/validation.js` (`validReport` finns som utkast, byggs klart i steg 6):
-  - **Grund (krav):** `equipmentId` finns i MySQL (backend frågar MySQL först, eftersom det inte finns någon FK), `damageFlag` är true/false, `checklist` är ett objekt. Fel → svara med fel och spara inget.
+- Validering vid `POST /api/reports`, i `src/validation.js` (`validReport`, klar 2026-11-16, se beslut ovan):
+  - [x] ~~Att reda ut i del 3: `equipment_id` eller `equipmentId`, lista eller objekt~~ → `equipmentId` + objekt.
+  - **Grund (krav, klart):** `equipmentId` finns i MySQL (backend frågar MySQL först, eftersom det inte finns någon FK), `damageFlag` är true/false, `checklist` är ett objekt. Fel → svara med fel och spara inget.
   - **Fördjupning (VG, om tid finns):** hämta artikelns kategori med JOIN och kontrollera att checklistan har rätt fält för kategorin.
 
 ---
@@ -145,7 +210,7 @@
     - Lärarens `school_api` (`'app_user'@'127.0.0.1'`) har samma problem i min miljö.
     - [x] Nämnt i README ("Database settings", 2026-11-14). Kvar: nämna vid redovisningen.
 - [x] Appen ansluter aldrig som root (`.env` → `nordicrent_app_user`)
-- [x] `?`-parametrar för **alla** SQL-värden som kommer från API-anrop (utrustningsrutterna klara, bokningar och rapporter kvar)
+- [x] `?`-parametrar för **alla** SQL-värden som kommer från API-anrop (alla rutter klara 2026-11-16)
 
 ### SQL-frågor (`database/queries.sql`)
 Körs i MySQL och resultatet visas. De behöver **inga** egna API-rutter.
@@ -161,13 +226,16 @@ Körs i MySQL och resultatet visas. De behöver **inga** egna API-rutter.
   - en kunds bokningshistorik
 
 ### Transaktion
-- [ ] Skapandet av en bokning sker i en transaktion: bokningen, dess rader och statusuppdateringen av utrustningen lyckas eller misslyckas som en helhet
-- [ ] Visa en **COMMIT** (allt sparas)
-- [ ] Visa en **avsiktlig ROLLBACK** (ett steg misslyckas, och inga halvfärdiga bokningsrader blir kvar)
-- [ ] Förhindra en uppenbar dubbelbokning av en utrustning som redan är uthyrd
-- [x] COMMIT + ROLLBACK visade i SQL (DB-03, 2026-11-14). API-delen återstår i steg 5.
-- [ ] **Priset till bokningsraden med `INSERT … SELECT`** (från `equipment.daily_price`): priset går MySQL → MySQL och passerar aldrig JavaScript (ingen sträng/Number-omvandling), och klienten kan inte skicka in ett eget pris.
-- [ ] **Kolla `affectedRows` efter varje INSERT/UPDATE i transaktionen.** Fälla: `INSERT … SELECT … WHERE equipment_id = 99` för en artikel som inte finns ger **inget fel**. SELECT:en hittar 0 rader, så 0 rader läggs in, och FK:n får aldrig något att stoppa. Om `affectedRows` är 0 måste backend själv köra ROLLBACK, annars blir det en bokning utan rader. Samma idé som `ROW_COUNT()` i SQL (`~/sql-kurs/2026-11-09`, fil 03) och lektionens `WHERE status = 'open'`-vakt.
+- [x] Skapandet av en bokning sker i en transaktion: bokningen och dess rader lyckas eller misslyckas som en helhet (2026-11-15)
+  - **Ingen statusuppdatering av utrustningen** vid bokning: tillgänglighet avgörs av datumen (överlappskollen), inte av `equipment.status`. En bokning nästa vecka ska inte göra artikeln `rented` redan idag. Att sätta `rented`/`available` vid utlämning och återlämning hör till API v2 (return-flödet).
+- [x] Visa en **COMMIT** (allt sparas): DB-03 + DB-07, fall A och J
+- [x] Visa en **avsiktlig ROLLBACK** (ett steg misslyckas, och inga halvfärdiga bokningsrader blir kvar): DB-03 fall F/G, DB-07 fall H/I/K
+- [x] Förhindra dubbelbokning: full överlappskontroll med buffertdag (fördjupning), se Öppna frågor och DB-07
+- [x] COMMIT + ROLLBACK visade i SQL (DB-03, 2026-11-14) och via API (2026-11-15).
+- [x] **En egen anslutning** för hela transaktionen: `pool.getConnection()` före `try`, `beginTransaction()`, alla frågor på `connection.execute`, `commit()` sist i `try`, `rollback()` i `catch`, `release()` i `finally`. **Varför inte `pool.execute`?** Poolen är flera anslutningar ("kassor"). Varje `pool.execute` kan hamna på en annan anslutning, och en transaktion finns bara på den anslutning som startade den. Rollback på anslutning 2 ångrar inte det som hände på anslutning 4.
+- [x] **Två sorters fel i rutten:** MySQL-fel (t.ex. kund 999 → 1452) kastas, hamnar i `catch` och översätts av `dbFailure`. Egna kontroller (`affectedRows === 0`, `conflicts.length > 0`) är inga MySQL-fel, så rutten kör `rollback()` och svarar 409 direkt, samma mönster som PUT (`affectedRows === 0` → 404). `finally` släpper anslutningen i alla fall.
+- [x] **Priset till bokningsraden med `INSERT … SELECT`** (från `equipment.daily_price`): priset går MySQL → MySQL och passerar aldrig JavaScript (ingen sträng/Number-omvandling), och klienten kan inte skicka in ett eget pris.
+- [x] **Kolla `affectedRows` efter varje INSERT/UPDATE i transaktionen.** Fälla: `INSERT … SELECT … WHERE equipment_id = 99` för en artikel som inte finns ger **inget fel**. SELECT:en hittar 0 rader, så 0 rader läggs in, och FK:n får aldrig något att stoppa. Om `affectedRows` är 0 måste backend själv köra ROLLBACK, annars blir det en bokning utan rader. Samma idé som `ROW_COUNT()` i SQL (`~/sql-kurs/2026-11-09`, fil 03) och lektionens `WHERE status = 'open'`-vakt.
 
 ### Felhantering och databasprov
 - [x] Databasspecifik felhantering: `dbFailure(error, res)` i `server.js` (2026-11-14) känner igen MySQL:s `error.code` och svarar med JSON:
@@ -184,11 +252,12 @@ Körs i MySQL och resultatet visas. De behöver **inga** egna API-rutter.
   - **Max 10 artiklar per bokning, eget val:** realistiskt för en kunds bokning (ingen depå har 10 artiklar i seed-datan) och ett skydd mot överbelastning. En lista med t.ex. 100 000 id:n stoppas med 400 innan servern gör en enda databasfråga.
   - **Dubbletter stoppas:** `new Set(equipment_ids.map(Number)).size === equipment_ids.length`. `map(Number)` behövs för att `3` och `"3"` annars räknas som olika värden. Utan regeln hade `uq_booking_equipment` gett 1062 inne i transaktionen.
   - **`end_date > start_date`** står sist, efter `validDate`, så att båda redan är giltiga strängar. Samma regel som `chk_booking_duration`, med CHECK:en som reservskydd.
-- [ ] Tre dokumenterade databasprov i `DATABASE_TESTS.md`, med förväntat och faktiskt resultat:
+- [x] Tre dokumenterade databasprov i `DATABASE_TESTS.md`, med förväntat och faktiskt resultat:
   1. [x] läsning/JOIN (DB-01, 2026-11-14)
   2. [x] ett constraint-fel (DB-02, SQL 2026-11-13 + API 2026-11-14: negativt pris och okänd kategori → 400)
-  3. [ ] rollback utan halvfärdiga bokningsrader (DB-03: SQL-delen klar 2026-11-14, API-delen kvar till steg 5)
-  - Extra: DB-04 (anonymisering), DB-05 (bookings-constraints), DB-06 (booking_lines-constraints)
+  3. [x] rollback utan halvfärdiga bokningsrader (DB-03: SQL 2026-11-14, API 2026-11-15)
+  - Extra: DB-04 (anonymisering), DB-05 (bookings-constraints), DB-06 (booking_lines-constraints), DB-07 (överlapp)
+  - Valfritt: DB-08 för MongoDB-rutterna (testerna från 2026-11-16 finns, se steg 6)
 
 ### Objektorienterad problemlösning
 - [x] Ett litet kodexempel, t.ex. en klass eller ett objekt för databasåtkomst, och en förklaring av varför det hjälper. Inga särskilda arkitekturlager krävs.
@@ -219,9 +288,9 @@ Körs i MySQL och resultatet visas. De behöver **inga** egna API-rutter.
 | POST | `/api/equipment` | Parameteriserad INSERT | ✅ 2026-11-14 |
 | PUT | `/api/equipment/:id` | Parameteriserad UPDATE | ✅ 2026-11-14 |
 | DELETE | `/api/equipment/:id` | Avveckling: sätter status `retired` (enligt FK-policyn) | ✅ 2026-11-14 |
-| POST | `/api/bookings` | MySQL-transaktion med booking + booking_lines | steg 5 |
-| POST | `/api/reports` | Spara ett MongoDB-dokument | steg 6 |
-| GET | `/api/reports/equipment/:id` | Hämta MongoDB-dokument | steg 6 |
+| POST | `/api/bookings` | MySQL-transaktion med booking + booking_lines | ✅ 2026-11-15 |
+| POST | `/api/reports` | Spara ett MongoDB-dokument | ✅ 2026-11-16 |
+| GET | `/api/reports/equipment/:id` | Hämta MongoDB-dokument | ✅ 2026-11-16 |
 
 - [x] Valfritt: `GET /api/health` (räknas inte till de sju)
 
@@ -233,7 +302,7 @@ Körs i MySQL och resultatet visas. De behöver **inga** egna API-rutter.
 - **PUT** ändrar samma fem fält, **inte status**. Status ändras på andra ställen: `rented` av bokningstransaktionen, `retired` av DELETE (`maintenance` har ingen rutt, se API v2). `WHERE equipment_id=? AND status <> 'retired'`: en retired artikel kan inte ändras. `affectedRows === 0` → `404` ("not found or retired"). En prisändring påverkar inte gamla bokningar (priset ligger på bokningsraden), testat med artikel 4: 450 → 500, bokning 7 räknas fortfarande med 400.
 - **DELETE** = **soft delete**: `UPDATE … SET status='retired' WHERE equipment_id=? AND status <> 'retired' AND status <> 'rented'`. Raden ligger kvar, så gamla bokningsrader pekar fortfarande på något som finns. `available` och `maintenance` får tas ur bruk, men inte en artikel som är ute hos en kund. Svarar `200` + `{ equipment_id, status: 'retired' }`, annars `404`. HTTP-metoden (DELETE) beskriver vad klienten vill, SQL-kommandot (UPDATE) hur backend gör det.
 - **Statuskoder:** 200 OK, 201 Created, 400 fel data, 404 hittades inte, 409 krock, 500 oväntat fel.
-- [ ] Liten rest: stavfel "renter" → "rented" i DELETE-rutten 404-meddelande.
+- [x] Liten rest: stavfel "renter" → "rented" i DELETE-rutten 404-meddelande (rättat).
 - [ ] JSON-svar och grundläggande skillnad mellan lyckat och misslyckat anrop räcker
 - [ ] Fler rutter ger **inte** automatiskt VG. VG = tekniskt väl genomförd SQL och tabellhantering, och att jag använder MySQL och MongoDB självständigt och ändamålsenligt.
 
@@ -246,8 +315,8 @@ Körs i MySQL och resultatet visas. De behöver **inga** egna API-rutter.
 - [ ] ER-diagram (bild/PDF) + kort text om 3NF, relationer, MongoDB-val och transaktion
 - [x] `.env.example` (finns, med övningslösenordet `12345`, se Säkerhet)
 - [ ] `README.md` med installation, start/stopp och databasinställningar ("Database settings" klar 2026-11-14, resten TODO)
-- [ ] `DATABASE_TESTS.md` med tre körda databasprov inklusive faktiskt resultat (DB-01 + DB-02 klara, DB-03 API-del kvar)
-- [ ] Muntlig redovisning enligt `oral_presentation_guide.md` (**har inte setts än, läs den!**)
+- [x] `DATABASE_TESTS.md` med tre körda databasprov inklusive faktiskt resultat (DB-01–03 klara + extra DB-04–07)
+- [ ] Muntlig redovisning enligt `oral_presentation_guide.md` (läst 2026-11-16, se [Kvar att göra](#kvar-att-göra))
 
 ---
 
@@ -256,7 +325,7 @@ Körs i MySQL och resultatet visas. De behöver **inga** egna API-rutter.
 - [x] Behövs en egen tabell för bokningshistorik? **Nej.** Bokningarna ligger kvar i bokningstabellen även när de är `returned`/`cancelled`. Historiken är en fråga på kundens id.
 - [x] Defaultvärden för status: utrustning `available`, ny bokning `confirmed`.
 - [x] Bokningen behöver två sorters datum: när bokningen gjordes (syns t.ex. på en bokningsbekräftelse) och vilka dagar den gäller (start + slut).
-- [ ] **Dubbelbokning (steg 5).** Kravet nu: en utrustning som *redan är uthyrd* får inte bokas. Att fundera på: räcker det att titta på `equipment.status`, eller ska du titta på datumen i bokningarna? Vad händer med en bokning som börjar nästa vecka, ska artikeln vara `rented` redan idag?
+- [x] **Dubbelbokning (steg 5, klart 2026-11-15).** Kravet nu: en utrustning som *redan är uthyrd* får inte bokas. Att fundera på: räcker det att titta på `equipment.status`, eller ska du titta på datumen i bokningarna? Vad händer med en bokning som börjar nästa vecka, ska artikeln vara `rented` redan idag?
   - **Fördjupning (VG):** full kontroll av överlappande datum. `UNIQUE` räcker inte: 1–5 dec och 3–8 dec är olika datum men krockar ändå. Rita två intervall på en tidslinje och formulera villkoret för när de överlappar ("om ... och ..."). Det villkoret blir sedan ett `WHERE` i en SQL-fråga. Tänk också på kantdatum: om en bokning slutar 5 dec, kan nästa börja 5 dec?
   - **Beslut 2026-11-14: datummodell + buffertdag.**
     - **Hotellmodellen** gäller (samma som `chk_booking_duration` och `DATEDIFF` i `queries.sql` fråga 4): `start_date` = utlämningsdag, `end_date` = återlämningsdag, antal dygn = `DATEDIFF(end_date, start_date)`. Fredag 4/12 → söndag 6/12 = 2 dygn. Samma dag är inte tillåtet.

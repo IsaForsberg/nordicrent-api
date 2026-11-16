@@ -1,7 +1,5 @@
 'use strict';
 
-
-
 require('dotenv').config();
 
 const { MongoClient } = require('mongodb');
@@ -22,10 +20,10 @@ let reports;
 // Called once in start() in server.js, before the server starts listening.
 async function connectMongo() {
   await client.connect();
-const db = client.db(
+  const db = client.db(
     process.env.MONGO_DB || 'nordicrent_docs'
   );
- reports = db.collection('condition_reports');
+  reports = db.collection('condition_reports');
 }
 
 

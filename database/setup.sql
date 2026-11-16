@@ -1,28 +1,27 @@
 -- Active: 1792410250481@@127.0.0.1@3306
-DROP DATABASE IF EXISTS nordicrent_api; 
+DROP DATABASE IF EXISTS nordicrent_api;
 
 CREATE DATABASE nordicrent_api CHARACTER SET utf8mb4;
 
 USE nordicrent_api;
 
- CREATE TABLE depots 
- (depot_id INT AUTO_INCREMENT PRIMARY KEY, 
- name VARCHAR(70) NOT NULL, 
- city VARCHAR(50) NOT NULL, 
- address VARCHAR(150) NOT NULL,
- -- Same name in different cities is allowed, and a city can have several depots.
- -- The same name twice in the same city is not, so customers and staff can tell the depots apart.
- UNIQUE KEY uq_depot_location (name, city)
+CREATE TABLE depots (
+    depot_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(70) NOT NULL,
+    city VARCHAR(50) NOT NULL,
+    address VARCHAR(150) NOT NULL,
+    -- Same name in different cities is allowed, and a city can have several depots.
+    -- The same name twice in the same city is not, so customers and staff can tell the depots apart.
+    UNIQUE KEY uq_depot_location (name, city)
 );
 
-CREATE TABLE categories 
-(category_id INT AUTO_INCREMENT PRIMARY KEY,
- name VARCHAR(40) UNIQUE NOT NULL, 
- description TEXT NOT NULL
- );
+CREATE TABLE categories (
+    category_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(40) UNIQUE NOT NULL,
+    description TEXT NOT NULL
+);
 
-
- CREATE TABLE equipment (
+CREATE TABLE equipment (
     equipment_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     category_id INT NOT NULL,
     depot_id INT NOT NULL,
@@ -34,8 +33,8 @@ CREATE TABLE categories
         REFERENCES categories(category_id) ON DELETE RESTRICT,
     CONSTRAINT fk_equipment_depot FOREIGN KEY (depot_id)
         REFERENCES depots(depot_id) ON DELETE RESTRICT,
-    CONSTRAINT chk_equipment_daily_price CHECK (daily_price >= 0)       
- );
+    CONSTRAINT chk_equipment_daily_price CHECK (daily_price >= 0)
+);
 
 CREATE TABLE customers (
     customer_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -44,9 +43,9 @@ CREATE TABLE customers (
     email VARCHAR(80) UNIQUE,
     phone VARCHAR(20),
     deleted_at DATETIME, -- NULL = active customer, a date = anonymized
-    CONSTRAINT chk_customer_personal_data 
-    CHECK (deleted_at IS NOT NULL OR
-    (first_name IS NOT NULL AND last_name IS NOT NULL AND email IS NOT NULL AND phone IS NOT NULL))
+    CONSTRAINT chk_customer_personal_data
+        CHECK (deleted_at IS NOT NULL OR
+            (first_name IS NOT NULL AND last_name IS NOT NULL AND email IS NOT NULL AND phone IS NOT NULL))
 );
 
 CREATE TABLE bookings (
@@ -70,8 +69,8 @@ CREATE TABLE booking_lines (
         REFERENCES bookings(booking_id) ON DELETE CASCADE,
     CONSTRAINT fk_booking_lines_equipment FOREIGN KEY (equipment_id)
         REFERENCES equipment(equipment_id) ON DELETE RESTRICT,
-    UNIQUE KEY uq_booking_equipment(booking_id, equipment_id),
-    CONSTRAINT chk_booking_lines_daily_price CHECK (daily_price >= 0) 
+    UNIQUE KEY uq_booking_equipment (booking_id, equipment_id),
+    CONSTRAINT chk_booking_lines_daily_price CHECK (daily_price >= 0)
 );
 
 -- App user for the Express API, with least privilege (no DELETE, no CREATE/ALTER/DROP).
@@ -83,7 +82,6 @@ CREATE TABLE booking_lines (
 -- with the password, and only has the privileges granted below.
 -- In a real installation: a strong password, and the MySQL port exposed only locally
 -- (podman run -p 127.0.0.1:3306:3306 ...).
-
 
 DROP USER IF EXISTS 'nordicrent_app_user'@'%';
 CREATE USER IF NOT EXISTS 'nordicrent_app_user'@'%'
