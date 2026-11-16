@@ -34,11 +34,13 @@ function validBooking(body) {
     && positiveId(body.customer_id)
     && Array.isArray(body.equipment_ids)
     && body.equipment_ids.length >= 1
+    // Max 10: every item = 2 queries in the transaction.
     && body.equipment_ids.length <= 10
     && body.equipment_ids.every(positiveId)
     && validDate(body.start_date)
     && validDate(body.end_date)
     && body.end_date > body.start_date
+    // No duplicates: Set removes them, so a smaller Set means [1, "1"] or [1, 1] was sent.
     && new Set(body.equipment_ids.map(Number)).size === body.equipment_ids.length;
 }
 
@@ -49,6 +51,7 @@ function validReport(body) {
     && body.notes.trim().length > 0
     && body.notes.trim().length <= 1000
     && isObject(body.checklist)
+    // Length check first: every() on an empty list is always true.
     && Object.values(body.checklist).length >= 1
     && Object.values(body.checklist).every(item => typeof item === 'boolean')
     && typeof body.damageFlag === 'boolean';

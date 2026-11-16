@@ -157,6 +157,7 @@ app.post('/api/reports', async (req, res) => {
     return res.status(400).json({ error: 'Valid equipmentId, notes, checklist and damageFlag is required' });
   }
   try {
+    // No FK between MongoDB and MySQL, so the backend checks that the equipment exists.
     const rows = await equipmentRepository.findById(req.body.equipmentId);
     if (!rows.length) return res.status(404).json({ error: 'Equipment not found or is retired' });
 
@@ -170,6 +171,7 @@ app.post('/api/reports', async (req, res) => {
     const result = await reportsCollection().insertOne(document);
     return res.status(201).json({ report_id: result.insertedId.toString() });
   } catch (error) {
+    // Only a SELECT in MySQL (no constraint errors possible), so no dbFailure here.
     console.error('POST /api/reports failed:', error.message);
     return res.status(500).json({ error: 'Could not save report' });
   }
@@ -180,6 +182,7 @@ app.get('/api/reports/equipment/:id', async (req, res) => {
     return res.status(400).json({ error: 'Valid equipment ID required' });
   }
   try {
+    // req.params is always a string; equipmentId is stored as a number. No reports = 200 [].
     const reports = await reportsCollection()
       .find({ equipmentId: Number(req.params.id) })
       .sort({ createdAt: -1 })

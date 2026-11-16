@@ -95,6 +95,16 @@ ORDER BY per_equipment.revenue DESC, e.model_name;
 
 -------------------------------------------------------------------------------------------
 
+-- TRANSACTIONS
+-- Run right after setup.sql + seed.sql, and A before B, so the numbers below match.
+-- @booking_id saves the new booking's id. LAST_INSERT_ID() cannot be used for that after
+-- the booking_lines INSERT, because it then returns the new booking_line_id instead.
+
+
+-- A. ROLLBACK: a booking line that fails undoes the whole booking.
+-- The booking is inserted, but the line points to equipment 99, which does not exist
+-- → error 1452 (fk_booking_lines_equipment) → ROLLBACK.
+-- Expected: 16 bookings / 22 lines before AND after. No half booking is left.
 
 SELECT COUNT(*) FROM bookings;
 SELECT COUNT(*) FROM booking_lines;
@@ -103,20 +113,25 @@ START TRANSACTION;
 
 INSERT INTO bookings (customer_id, start_date, end_date)
 VALUES (2, '2026-12-03', '2026-12-05');
+SET @booking_id = LAST_INSERT_ID();
+SELECT * FROM bookings WHERE booking_id = @booking_id;  -- visible inside the transaction
 
 INSERT INTO booking_lines (booking_id, equipment_id, daily_price)
-VALUES (17, 99, 350.00);
+VALUES (@booking_id, 99, 350.00);  -- fails: error 1452
 
 SHOW ERRORS;
-SELECT * FROM bookings WHERE booking_id = 17;
 ROLLBACK;
 
-SELECT COUNT(*) FROM bookings;
-SELECT COUNT(*) FROM booking_lines;
+SELECT COUNT(*) FROM bookings;       -- 16
+SELECT COUNT(*) FROM booking_lines;  -- 22
 
 
 -------------------------------------------------------------------------------------------
 
+-- B. COMMIT: booking + line for equipment 3 are saved together.
+-- Expected: 16 / 22 before, 17 / 23 after.
+-- The new booking gets id 18, not 17: AUTO_INCREMENT does not reuse the id from A's rollback.
+
 SELECT COUNT(*) FROM bookings;
 SELECT COUNT(*) FROM booking_lines;
 
@@ -124,12 +139,14 @@ START TRANSACTION;
 
 INSERT INTO bookings (customer_id, start_date, end_date)
 VALUES (2, '2026-12-03', '2026-12-05');
+SET @booking_id = LAST_INSERT_ID();
 
-SELECT * FROM bookings WHERE booking_id = LAST_INSERT_ID();
 INSERT INTO booking_lines (booking_id, equipment_id, daily_price)
-VALUES (LAST_INSERT_ID(), 3, 350.00);
+VALUES (@booking_id, 3, 350.00);
 
 COMMIT;
-SELECT * FROM booking_lines WHERE booking_id = 18;
-SELECT COUNT(*) FROM bookings;
-SELECT COUNT(*) FROM booking_lines;
+
+SELECT * FROM bookings WHERE booking_id = @booking_id;       -- booking 18
+SELECT * FROM booking_lines WHERE booking_id = @booking_id;  -- one line, equipment 3
+SELECT COUNT(*) FROM bookings;       -- 17
+SELECT COUNT(*) FROM booking_lines;  -- 23

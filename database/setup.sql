@@ -1,4 +1,3 @@
--- Active: 1792410250481@@127.0.0.1@3306
 DROP DATABASE IF EXISTS nordicrent_api;
 
 CREATE DATABASE nordicrent_api CHARACTER SET utf8mb4;
@@ -29,6 +28,7 @@ CREATE TABLE equipment (
     daily_price DECIMAL(7,2) NOT NULL,
     purchase_date DATE NOT NULL,
     status ENUM ('available', 'rented', 'maintenance', 'retired') NOT NULL DEFAULT 'available',
+    -- RESTRICT: a category or depot that still has equipment cannot be deleted.
     CONSTRAINT fk_equipment_category FOREIGN KEY (category_id)
         REFERENCES categories(category_id) ON DELETE RESTRICT,
     CONSTRAINT fk_equipment_depot FOREIGN KEY (depot_id)
@@ -43,6 +43,7 @@ CREATE TABLE customers (
     email VARCHAR(80) UNIQUE,
     phone VARCHAR(20),
     deleted_at DATETIME, -- NULL = active customer, a date = anonymized
+    -- An active customer must have all personal data; only an anonymized one may have NULL.
     CONSTRAINT chk_customer_personal_data
         CHECK (deleted_at IS NOT NULL OR
             (first_name IS NOT NULL AND last_name IS NOT NULL AND email IS NOT NULL AND phone IS NOT NULL))
@@ -55,8 +56,10 @@ CREATE TABLE bookings (
     end_date DATE NOT NULL,
     status ENUM ('confirmed', 'active', 'returned', 'cancelled') NOT NULL DEFAULT 'confirmed',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- RESTRICT: customers with bookings are anonymized, not deleted (keeps the history).
     CONSTRAINT fk_booking_customer FOREIGN KEY (customer_id)
         REFERENCES customers(customer_id) ON DELETE RESTRICT,
+    -- At least one day: same start and end date would give 0 days and a price of 0.
     CONSTRAINT chk_booking_duration CHECK (end_date > start_date)
 );
 
@@ -64,7 +67,9 @@ CREATE TABLE booking_lines (
     booking_line_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     booking_id INT NOT NULL,
     equipment_id INT NOT NULL,
-    daily_price DECIMAL(7,2) NOT NULL,
+    daily_price DECIMAL(7,2) NOT NULL, -- price at the time of booking (snapshot)
+    -- CASCADE: a line means nothing without its booking.
+    -- RESTRICT: equipment on any booking line (also old ones) cannot be deleted, so it is retired.
     CONSTRAINT fk_booking_lines_booking FOREIGN KEY (booking_id)
         REFERENCES bookings(booking_id) ON DELETE CASCADE,
     CONSTRAINT fk_booking_lines_equipment FOREIGN KEY (equipment_id)
@@ -76,12 +81,8 @@ CREATE TABLE booking_lines (
 -- App user for the Express API, with least privilege (no DELETE, no CREATE/ALTER/DROP).
 -- '12345' is a local development password only. Change it before any real installation.
 -- The real password must never be in the code: it belongs in .env, which is not committed to git.
--- Host '%' (any host) instead of '127.0.0.1': MySQL runs in a Podman container, so the API's
--- connection reaches MySQL from the host machine's network address, not
--- from 127.0.0.1. '%' works both with and without a container. The user can still only log in
--- with the password, and only has the privileges granted below.
--- In a real installation: a strong password, and the MySQL port exposed only locally
--- (podman run -p 127.0.0.1:3306:3306 ...).
+-- Host '%' because MySQL runs in a container (password and privileges still apply).
+-- See "Database settings" in README.md.
 
 DROP USER IF EXISTS 'nordicrent_app_user'@'%';
 CREATE USER IF NOT EXISTS 'nordicrent_app_user'@'%'
@@ -93,4 +94,5 @@ GRANT SELECT ON nordicrent_api.depots TO 'nordicrent_app_user'@'%';
 GRANT SELECT, INSERT ON nordicrent_api.bookings TO 'nordicrent_app_user'@'%';
 GRANT SELECT, INSERT ON nordicrent_api.booking_lines TO 'nordicrent_app_user'@'%';
 
+-- Shows that the privileges are correct.
 SHOW GRANTS FOR 'nordicrent_app_user'@'%';

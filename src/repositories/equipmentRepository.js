@@ -1,6 +1,9 @@
 'use strict';
 
+// All SQL for equipment. Only talks to the database: no req/res, no status codes.
+// Errors are not caught here, they go to the route's catch.
 class EquipmentRepository {
+  // The pool (ready-made MySQL connections) is passed in, so the whole app shares one.
   constructor(pool) {
     this.pool = pool;
   }
@@ -24,6 +27,7 @@ class EquipmentRepository {
     return result.insertId;
   }
 
+  // update and retire return affectedRows: 0 = no matching row → the route answers 404.
   async update(id, data) {
     const [result] = await this.pool.execute(
       `UPDATE equipment
@@ -34,6 +38,7 @@ class EquipmentRepository {
     return result.affectedRows;
   }
 
+  // Soft delete: the row is kept for the booking history (FK RESTRICT, no DELETE privilege).
   async retire(id) {
     const [result] = await this.pool.execute(
       `UPDATE equipment
