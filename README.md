@@ -54,7 +54,18 @@ Requires Node.js, a running MySQL server (port 3306) and a running MongoDB serve
 
 ## Environment variables
 
-TODO (see `.env.example`)
+Copy `.env.example` to `.env`. `.env` is in `.gitignore` and is never committed.
+
+| Variable | Example | Meaning |
+|---|---|---|
+| `DB_HOST` | `127.0.0.1` | MySQL server |
+| `DB_PORT` | `3306` | MySQL port |
+| `DB_NAME` | `nordicrent_api` | database created by `setup.sql` |
+| `DB_USER` | `nordicrent_app_user` | the application user (not root) |
+| `DB_PASSWORD` | `12345` | local development password, see [Database settings](#database-settings) |
+| `MONGO_URI` | `mongodb://127.0.0.1:27017` | MongoDB server |
+| `MONGO_DB` | `nordicrent_docs` | MongoDB database for condition reports |
+| `PORT` | `3007` | port the API listens on |
 
 ## Starting and stopping
 
@@ -74,7 +85,21 @@ Stop the API with **Ctrl+C** in the terminal.
 
 ## Setting up and resetting the database
 
-TODO: how to run `database/setup.sql` and `database/seed.sql`, and how to reset the database (the seed must be re-runnable).
+Run both files **as root** (or another admin user), in this order:
+
+1. `database/setup.sql`: drops and recreates the database `nordicrent_api`, creates all tables and constraints, and creates the application user with its privileges.
+2. `database/seed.sql`: inserts the sample data (3 depots, 4 categories, 8 customers, 12 equipment items, 16 bookings, 22 booking lines).
+
+For example from the terminal:
+
+```bash
+mysql -u root -p < database/setup.sql
+mysql -u root -p < database/seed.sql
+```
+
+(or open the files in a database client and run them there).
+
+**Resetting:** run the same two files again. `setup.sql` starts with `DROP DATABASE IF EXISTS`, so `setup.sql` → `seed.sql` always gives the same starting point, with the same IDs. Run this before testing, since the tests in `DATABASE_TESTS.md` and the transactions in `queries.sql` add rows. The MongoDB collection is not reset by these files.
 
 The sample data in `database/seed.sql` was generated with the help of an AI tool. I designed the structure of the data myself and gave clear instructions about what it should contain: how many depots, categories, equipment items and customers, how the bookings should be spread across the customers (one customer with four bookings, one with three, several with two, some with one) and which bookings should be finished, ongoing or planned. I then went through the data, ran it against the database and verified that it matches what I asked for.
 
@@ -161,7 +186,14 @@ The data is split so that each table describes one thing and each piece of infor
 | `bookings` | What applies to the whole booking: customer, date range, status and when the booking was made. A customer can have many bookings, a booking has exactly one customer. |
 | `booking_lines` | Connects bookings and equipment (N:M). Without it, a booking would have to contain its items, or an item its bookings. Now `equipment` is only about equipment and `bookings` only about the booking. |
 
-TODO: describe which dependencies were eliminated (e.g. depot city stored in `depots`, not on every item).
+Dependencies that were removed by splitting the tables:
+
+- **Depot city and address** depend on the depot, not on the item. If they were stored on every item in `equipment`, a moved depot would have to be updated on many rows (a transitive dependency: `equipment_id → depot_id → city`). Now they are stored once, in `depots`.
+- **Category description** is stored once in `categories`, not repeated on every item.
+- **Customer name, email and phone** are stored once in `customers`, not on every booking.
+- **Dates and customer** belong to the whole booking, so they are stored in `bookings`, not repeated on every booking line.
+
+The price on `booking_lines` is not a repeated copy, see below.
 
 ### Price stored on booking lines
 
@@ -202,7 +234,14 @@ See [Connection between backend and frontend](docs/er-diagram.md#connection-betw
 
 `database/queries.sql` contains the queries that show the SQL part of the project. They are run directly in MySQL and do not have their own API routes.
 
-TODO: for each query, what question it answers (nested queries, JOIN with three tables, GROUP BY).
+| # | Shows | Question it answers |
+|---|---|---|
+| 1 | JOIN with three tables | What equipment do we have, in which city and category, with status and current price? (the basis for `GET /api/equipment`) |
+| 2 | GROUP BY + COUNT | How many items still in use (not retired) does each depot have? |
+| 3 | Nested SELECT | Which customers have made more bookings than the average customer? |
+| 4 | Nested SELECT | Which items have earned more than the average item? (price on the booking line × number of days, only returned bookings) |
+
+At the end of the file there are two transactions that show **ROLLBACK** (a booking line that fails undoes the whole booking) and **COMMIT**, with the expected row counts as comments. Run them right after `setup.sql` + `seed.sql`.
 
 ## MySQL vs MongoDB
 
@@ -216,19 +255,73 @@ TODO: for each query, what question it answers (nested queries, JOIN with three 
 
 ## Transaction design
 
-TODO: how `POST /api/bookings` creates a booking and its lines atomically, COMMIT and ROLLBACK, and how an obvious double booking is prevented.
+`POST /api/bookings` saves a booking and all its lines as **one transaction: all or nothing**.
+
+1. The body is validated (customer, 1–10 items without duplicates, valid dates, `end_date > start_date`).
+2. One connection is taken from the pool (`pool.getConnection()`). A transaction only exists on the connection that started it, so every query uses that connection, not `pool.execute()`.
+3. `beginTransaction()` → `INSERT` into `bookings`.
+4. For each item:
+   - **Overlap check:** is the item already on a `confirmed` or `active` booking whose dates overlap? (`start_date <= new end AND end_date >= new start`). `<=`/`>=` also block the day the item is returned, which gives staff a **buffer day** to check it. The check runs before the line is inserted, otherwise it would find the booking's own line.
+   - **Insert the line** with `INSERT … SELECT`: the daily price is copied from `equipment` (the client can never set the price), and only if the item is not `retired` or in `maintenance`.
+5. If a date is taken, or an item cannot be booked → `rollback()` and `409`. Nothing is saved, not even the lines for the items that were fine.
+6. Otherwise `commit()` and `201` with the `booking_id`. On any other error → `rollback()`. In `finally` the connection is always given back to the pool with `release()`.
+
+**Known limitation:** two requests for the same item at exactly the same moment could both pass the overlap check, because neither can see the other's uncommitted rows. This would be solved by locking the item's row first (`SELECT … FOR UPDATE`).
+
+The tests are in `DATABASE_TESTS.md` (DB-03 and DB-07).
 
 ## Error handling
 
-TODO: how MySQL errors (e.g. duplicate entry, missing foreign key) are recognized and returned as JSON.
+Errors are handled in two layers:
+
+1. **Validation in JavaScript** (`src/validation.js`) before the database is used → `400` with a message that says which fields are required.
+2. **MySQL constraints** as the second line of defence. The function `dbFailure` in `src/server.js` translates MySQL errors that got past the validation:
+
+| MySQL error | Example | Status |
+|---|---|---|
+| 1062 duplicate entry, 1451 row is referenced | duplicate value in a `UNIQUE` column, deleting a row that `RESTRICT` protects | `409` |
+| 1452 no referenced row, 3819 check constraint | `category_id` that does not exist, negative price | `400` |
+| anything else | lost connection, SQL error | `500` |
+
+On `500` the client only gets a generic message (`Database operation failed`). Table names and error codes are only logged in the terminal, so the client cannot see how the database is built. `0` affected rows on `PUT`/`DELETE` gives `404`.
 
 ## Object-oriented design
 
-TODO: a small code example (e.g. a class for database access) and why it helps.
+All SQL for equipment is in the class `EquipmentRepository` (`src/repositories/equipmentRepository.js`):
+
+```js
+class EquipmentRepository {
+  constructor(pool) {
+    this.pool = pool;
+  }
+
+  async retire(id) {
+    const [result] = await this.pool.execute(
+      `UPDATE equipment SET status='retired'
+       WHERE equipment_id=? AND status<>'retired' AND status<>'rented'`,
+      [Number(id)]
+    );
+    return result.affectedRows;
+  }
+}
+```
+
+```js
+// server.js
+const equipmentRepository = new EquipmentRepository(pool);
+const affectedRows = await equipmentRepository.retire(req.params.id);
+if (affectedRows === 0) return res.status(404).json({ ... });
+```
+
+**Why:** the class only talks to the database (SQL, parameters, return values). The route only handles HTTP (validation, status codes, JSON). The routes stay short, the SQL is in one place, and the pool is passed in through the constructor so the whole app shares one pool.
 
 ## Security
 
-TODO: application user instead of root, parameterized queries (`?`), `.env`.
+- **Application user instead of root:** the API connects as `nordicrent_app_user`, which only has the privileges the routes need (see [Database settings](#database-settings)). It has no `DELETE`, `DROP` or `GRANT`, so even a bug in the code cannot delete data or change the schema.
+- **Parameterized queries:** every query uses `?` placeholders. The values are sent separately from the SQL, so user input is always treated as data and never as SQL code. This protects against SQL injection.
+- **`.env`:** the database password and settings are read from `.env`, which is not committed. `.env.example` only has the local development values.
+- **Generic error messages:** the client never sees MySQL error details (see [Error handling](#error-handling)).
+- **Validation** of all input before it reaches MySQL or MongoDB. For MongoDB, which has no schema, the validation and the equipment check in MySQL are the only protection.
 
 ## Database tests
 
