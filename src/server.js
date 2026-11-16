@@ -168,6 +168,22 @@ app.post('/api/reports', async (req, res) => {
   }
 });
 
+app.get('/api/reports/equipment/:id', async (req, res) => {
+  if (!positiveId(req.params.id)) {
+    return res.status(400).json({ error: 'Valid equipment ID required' });
+  }
+  try {
+    const reports = await reportsCollection()
+      .find({ equipmentId: Number(req.params.id) })
+      .sort({ createdAt: -1 })
+      .toArray();
+    return res.json(reports);
+  } catch (error) {
+    console.error('GET /api/reports/equipment/:id failed:', error.message);
+    return res.status(500).json({ error: 'Could not fetch reports' });
+  }
+});
+
   const PORT = Number(process.env.PORT || 3007);
 async function start() {
   await pool.query('SELECT 1');
