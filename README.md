@@ -13,11 +13,28 @@ The backend consists of:
 
 ## Tech stack
 
-TODO
+| Part | Used for |
+|---|---|
+| **Node.js** + **Express 4** | the REST API |
+| **MySQL** (developed on 9.7) + **mysql2** | the relational data: customers, depots, categories, equipment, bookings, booking lines |
+| **MongoDB Community Server** (developed on 9.0) + **mongodb** driver | condition reports (`nordicrent_docs.condition_reports`) |
+| **dotenv** | reads the database settings from `.env` |
 
 ## Installation
 
-TODO
+Requires Node.js, a running MySQL server (port 3306) and a running MongoDB server (port 27017).
+
+1. Clone the repository and install the packages:
+   ```bash
+   git clone https://github.com/IsaForsberg/nordicrent-api.git
+   cd nordicrent-api
+   npm install
+   ```
+2. Create `.env` from the example file:
+   ```bash
+   cp .env.example .env
+   ```
+3. Create the database, the application user and the sample data, see [Setting up and resetting the database](#setting-up-and-resetting-the-database).
 
 ## Database settings
 
@@ -41,7 +58,19 @@ TODO (see `.env.example`)
 
 ## Starting and stopping
 
-TODO
+MySQL and MongoDB must be running before the API starts.
+
+```bash
+node src/server.js
+```
+
+On start the API first checks both databases (`SELECT 1` against MySQL, then connects to MongoDB). If one of them is not reachable, the API does not start and shows the error in the terminal, instead of running with only one database. When it is running it prints:
+
+```
+NordicRent API is running at http://localhost:3007/api/health
+```
+
+Stop the API with **Ctrl+C** in the terminal.
 
 ## Setting up and resetting the database
 
@@ -68,7 +97,50 @@ All endpoints exchange JSON.
 
 ### Example requests (curl)
 
-TODO
+The examples assume the sample data from `database/seed.sql`. Add `-i` to see the status code.
+
+```bash
+BASE=http://localhost:3007
+
+# Health check
+curl $BASE/api/health
+
+# List all equipment (with category name and city)
+curl $BASE/api/equipment
+
+# Add equipment → 201 + equipment_id
+curl -X POST $BASE/api/equipment \
+  -H "Content-Type: application/json" \
+  -d '{"category_id": 1, "depot_id": 1, "model_name": "Prijon Yukon", "daily_price": 300, "purchase_date": "2026-05-01"}'
+
+# Update equipment 2 (all five fields are required) → 200
+curl -X PUT $BASE/api/equipment/2 \
+  -H "Content-Type: application/json" \
+  -d '{"category_id": 1, "depot_id": 1, "model_name": "Prijon Kodiak", "daily_price": 375, "purchase_date": "2024-04-15"}'
+
+# Retire equipment 9 (status becomes "retired", the row is kept) → 200
+curl -X DELETE $BASE/api/equipment/9
+
+# Book equipment 1 and 2 → 201 + booking_id (409 if a date is taken or an item cannot be booked)
+curl -X POST $BASE/api/bookings \
+  -H "Content-Type: application/json" \
+  -d '{"customer_id": 1, "equipment_ids": [1, 2], "start_date": "2027-03-01", "end_date": "2027-03-04"}'
+
+# Save a condition report for equipment 1 → 201 + report_id
+curl -X POST $BASE/api/reports \
+  -H "Content-Type: application/json" \
+  -d '{"equipmentId": 1, "notes": "Small scratch on the hull", "checklist": {"hull": true, "paddle": true, "skirt": false}, "damageFlag": false}'
+
+# Get all condition reports for equipment 1, newest first → 200 (an empty list if there are none)
+curl $BASE/api/reports/equipment/1
+```
+
+| Status | When |
+|---|---|
+| `400` | missing or invalid fields, an invalid id in the URL, or data MySQL rejects (e.g. a category that does not exist) |
+| `404` | the equipment does not exist or is retired (and for `DELETE`, also when it is rented) |
+| `409` | a booking where a date is taken or an item cannot be booked, or a duplicate value |
+| `500` | an unexpected database error (the details are only logged in the terminal) |
 
 ---
 
@@ -122,7 +194,7 @@ This policy was approved by the course teacher. The customer API routes are not 
 
 ### Backend and frontend
 
-TODO: one connection between the backend and the frontend.
+See [Connection between backend and frontend](docs/er-diagram.md#connection-between-backend-and-frontend) in the ER diagram document (`GET /api/equipment` joins the IDs into names that a frontend can show).
 
 ---
 

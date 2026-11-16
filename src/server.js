@@ -8,6 +8,9 @@ const { connectMongo, reportsCollection, closeMongo } = require('./config/mongo'
 const { positiveId, validEquipment, validBooking, validReport } = require('./validation');
 
 
+// MySQL errors that passed the JS validation → HTTP status.
+// 409 = conflicts with existing data, 400 = MySQL rejected the input,
+// 500 = unexpected error (generic message to the client, details only in the terminal).
 function dbFailure(error, res) {
   if (['ER_DUP_ENTRY', 'ER_ROW_IS_REFERENCED_2'].includes(error.code)) {
     return res.status(409).json({ error: 'Database constraint rejected the change' });
@@ -89,8 +92,10 @@ app.post('/api/bookings', async (req, res) => {
   if (!validBooking(req.body)) {
     return res.status(400).json({ error: 'Missing or invalid fields. Required: customer_id, equipment_ids, start_date, end_date' });
   }
+  // Declared before try so catch and finally can use it (block scope).
   const connection = await pool.getConnection();
   try {
+    // The transaction lives on one connection, so every query uses connection, not pool.
     await connection.beginTransaction();
     const [result] = await connection.execute(
       'INSERT INTO bookings (customer_id, start_date, end_date) VALUES (?, ?, ?)',
@@ -102,6 +107,8 @@ app.post('/api/bookings', async (req, res) => {
 
     for (const equipmentId of equipment_ids) {
 
+      // Overlap check (<= and >= give the buffer day). Runs before the INSERT,
+      // otherwise it would find this booking's own line.
       const [conflicts] = await connection.execute(
         `SELECT b.booking_id
          FROM booking_lines AS bl
@@ -118,7 +125,8 @@ app.post('/api/bookings', async (req, res) => {
         return res.status(409).json({ error: 'The selected date is not available' });
       }
 
-      const [result] = await connection.execute(
+      // Price is copied from equipment (snapshot), never taken from the client.
+      const [lineResult] = await connection.execute(
         `INSERT INTO booking_lines (booking_id, equipment_id, daily_price)
          SELECT ?, equipment_id, daily_price
          FROM equipment
@@ -126,7 +134,8 @@ app.post('/api/bookings', async (req, res) => {
         [bookingId, Number(equipmentId)]
       );
 
-      if (result.affectedRows === 0) {
+      // 0 rows = equipment missing, retired or in maintenance → undo the whole booking.
+      if (lineResult.affectedRows === 0) {
         await connection.rollback();
         return res.status(409).json({ error: 'Equipment not found or not available' });
       }
@@ -189,7 +198,7 @@ async function start() {
   await pool.query('SELECT 1');
   await connectMongo();
   return app.listen(PORT, () => {
-    console.log(`NordicRent is API running at http://localhost:${PORT}/api/health`);
+    console.log(`NordicRent API is running at http://localhost:${PORT}/api/health`);
   });
 }
 
