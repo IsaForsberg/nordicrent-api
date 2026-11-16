@@ -48,6 +48,14 @@ class EquipmentRepository {
 
     return result.affectedRows
   }
+
+  async findById(id) {
+  const [rows] = await this.pool.execute(
+    `SELECT equipment_id FROM equipment WHERE equipment_id = ? AND status <> 'retired'`,
+    [Number(id)]
+  );
+  return rows;
+}
 }
 
 

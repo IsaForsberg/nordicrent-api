@@ -46,23 +46,14 @@ function validBooking(body) {
 
 function validReport(body) {
   return isObject(body)
-    && positiveId(body.equipment_id)
+    && positiveId(body.equipmentId)
     && typeof body.notes === 'string'
     && body.notes.trim().length > 0
     && body.notes.trim().length <= 1000
-    && (
-      body.checklist === undefined
-      || (
-        Array.isArray(body.checklist)
-        && body.checklist.every(
-          item => typeof item === 'string' && item.length <= 100
-        )
-      )
-    )
-    && (
-      body.damageFlag === undefined
-      || typeof body.damageFlag === 'boolean'
-    );
+    && isObject(body.checklist)
+    && Object.values(body.checklist).length >= 1
+    && Object.values(body.checklist).every(item => typeof item === 'boolean')
+    && typeof body.damageFlag === 'boolean';
 }
 
 module.exports = {

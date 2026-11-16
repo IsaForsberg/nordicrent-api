@@ -145,6 +145,29 @@ for (const equipmentId of equipment_ids) {
 });
 
 
+app.post('/api/reports', async (req, res) => {
+  if (!validReport(req.body)) {
+    return res.status(400).json({ error: 'Valid equipmentId, notes, checklist and damageFlag is required' });
+  }
+  try {
+     const rows = await equipmentRepository.findById(req.body.equipmentId);
+    if (!rows.length) return res.status(404).json({ error: 'Equipment not found or is retired' });
+
+        const document = {
+      equipmentId: Number(req.body.equipmentId),
+      notes: req.body.notes.trim(),
+      checklist: req.body.checklist,
+      damageFlag: req.body.damageFlag,
+      createdAt: new Date()
+    };
+    const result = await reportsCollection().insertOne(document);
+    return res.status(201).json({ report_id: result.insertedId.toString() });
+  } catch (error) {
+    console.error('POST /api/reports failed:', error.message);
+    return res.status(500).json({ error: 'Could not save report' });
+  }
+});
+
   const PORT = Number(process.env.PORT || 3007);
 async function start() {
   await pool.query('SELECT 1');
