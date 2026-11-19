@@ -27,11 +27,13 @@ const app = express();
 app.use(express.json());
 
 
+// GET /api/health: shows that the API is running.
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
 
 const equipmentRepository = new EquipmentRepository(pool);
 
+// GET /api/equipment: all equipment with city and category name (JOIN).
 app.get('/api/equipment', async (req, res) => {
   try {
     const rows = await equipmentRepository.findAll();
@@ -42,6 +44,7 @@ app.get('/api/equipment', async (req, res) => {
   }
 });
 
+// POST /api/equipment: adds a new item → 201 + equipment_id.
 app.post('/api/equipment', async (req, res) => {
   if (!validEquipment(req.body)) {
     return res.status(400).json({ error: 'Missing or invalid fields. Required: category_id, depot_id, model_name, daily_price, purchase_date' });
@@ -55,6 +58,7 @@ app.post('/api/equipment', async (req, res) => {
   }
 });
 
+// PUT /api/equipment/:id: updates all fields of an item that is not retired.
 app.put('/api/equipment/:id', async (req, res) => {
   if (!positiveId(req.params.id) || !validEquipment(req.body)) {
     return res.status(400).json({ error: 'Valid equipment id in the URL and valid fields required: category_id, depot_id, model_name, daily_price, purchase_date' });
@@ -71,6 +75,7 @@ app.put('/api/equipment/:id', async (req, res) => {
   }
 });
 
+// DELETE /api/equipment/:id: retires the item (soft delete), the row is kept.
 app.delete('/api/equipment/:id', async (req, res) => {
   if (!positiveId(req.params.id)) {
     return res.status(400).json({ error: 'Valid equipment ID required' });
@@ -88,6 +93,7 @@ app.delete('/api/equipment/:id', async (req, res) => {
 });
 
 
+// POST /api/bookings: booking + booking lines in one transaction (all or nothing).
 app.post('/api/bookings', async (req, res) => {
   if (!validBooking(req.body)) {
     return res.status(400).json({ error: 'Missing or invalid fields. Required: customer_id, equipment_ids, start_date, end_date' });
@@ -152,6 +158,7 @@ app.post('/api/bookings', async (req, res) => {
 });
 
 
+// POST /api/reports: saves a condition report in MongoDB after checking the item in MySQL.
 app.post('/api/reports', async (req, res) => {
   if (!validReport(req.body)) {
     return res.status(400).json({ error: 'Valid equipmentId, notes, checklist and damageFlag is required' });
@@ -177,6 +184,7 @@ app.post('/api/reports', async (req, res) => {
   }
 });
 
+// GET /api/reports/equipment/:id: the item's condition reports, newest first.
 app.get('/api/reports/equipment/:id', async (req, res) => {
   if (!positiveId(req.params.id)) {
     return res.status(400).json({ error: 'Valid equipment ID required' });

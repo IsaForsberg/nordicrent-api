@@ -124,6 +124,8 @@ All endpoints exchange JSON.
 
 The examples assume the sample data from `database/seed.sql`. Add `-i` to see the status code.
 
+Tested on Linux (Fedora-based) with bash. The curl examples use single quotes around JSON; in Windows PowerShell, use `curl.exe` and different quoting.
+
 ```bash
 BASE=http://localhost:3007
 
