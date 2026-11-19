@@ -4,33 +4,33 @@
 
 > Uppdaterad 2026-11-09 efter lärarens nya version av uppgiften. Den nya versionen har färre API-rutter och fokuserar på databasen: SQL, transaktion, databasprov och MongoDB. Det som inte längre krävs finns under [Sparat till API v2](#sparat-till-api-v2-nästa-kurs).
 >
-> **Senast uppdaterad 2026-11-16 (måndag förmiddag):** **alla 7 rutter klara.** Steg 1–6 klara (utom ER-export). Kvar: dokumentation, kommentarer och förberedelse inför redovisningen, se [Kvar att göra](#kvar-att-göra).
+> **Senast uppdaterad 2026-11-19 (torsdag):** **redovisningen klar och gick bra.** Alla 7 rutter, SQL-filer, databasprov, README och kommentarer klara. Kvar före inlämningen 22/11: se [Kvar att göra](#kvar-att-göra).
 
 ---
 
 ## Kvar att göra
 
-**Före redovisningen (torsdag 19/11):**
-- [ ] **Manus** utifrån `oral_presentation_guide.md` (se tabellen nedan). Tis–ons.
-- [ ] **Öva på lärarens frågor** (se nedan), med egna ord.
-- [ ] **Demofil med alla anrop till redovisningen** (görs tillsammans i genomgången, tisdag). Ligger **utanför** repot, lämnas inte in. Anropen i samma ordning som de 7 demopunkterna, med `BASE=http://localhost:3007` överst. `curl -i` där statuskoden är poängen (201/400/404/409), `curl -s … | jq` för läsbar JSON. Börjar med återställning (`setup.sql` + `seed.sql`) så att id:n stämmer med det som visas.
-- [ ] **Kommentarer i koden: gå igenom tillsammans** (också till API v2, så jag kommer ihåg varför). Förslag på var:
+**Redovisningen (torsdag 19/11): klar ✅**
+- [x] **Manus** utifrån `oral_presentation_guide.md` (se tabellen nedan). Tis–ons.
+- [x] **Öva på lärarens frågor** (se nedan), med egna ord.
+- [x] **Demofil med alla anrop till redovisningen** (görs tillsammans i genomgången, tisdag). Ligger **utanför** repot, lämnas inte in. Anropen i samma ordning som de 7 demopunkterna, med `BASE=http://localhost:3007` överst. `curl -i` där statuskoden är poängen (201/400/404/409), `curl -s … | jq` för läsbar JSON. Börjar med återställning (`setup.sql` + `seed.sql`) så att id:n stämmer med det som visas.
+- [x] **Kommentarer i koden: gå igenom tillsammans** (också till API v2, så jag kommer ihåg varför). Förslag på var:
   - `src/server.js`: `dbFailure` (varför 400/409/500), bokningstransaktionen (`getConnection` i stället för `pool.execute`, varför krockfrågan körs före INSERT, `INSERT … SELECT` för priset, `affectedRows === 0` → rollback), `POST /api/reports` (varför MySQL-kollen först: ingen FK mellan databaserna), GET-rapporter (`Number()` eftersom `req.params` alltid är text, 200 med `[]`)
   - `src/validation.js`: en rad per funktion om varför (max 10 artiklar, `Set` mot dubbletter, `length >= 1` före `every` eftersom `every` på `[]` alltid är `true`)
   - `src/repositories/equipmentRepository.js`: vad klassen ansvarar för (bara databasen, ingen HTTP), vad varje metod returnerar, soft delete i `retire`
   - `database/setup.sql`: kort motivering vid varje `ON DELETE` och `CHECK`
   - `database/queries.sql`: rubrik på de två transaktionsexemplen längst ner (ROLLBACK resp. COMMIT)
-- [ ] **ER-diagrammet som bild/PDF** (`docs/`), behövs för demopunkt 1.
-- [ ] **Testa sorteringen i GET-rapporter:** skicka två rapporter för samma artikel, kolla att den nyaste kommer först.
-- [ ] **Bestämma om `SHOW GRANTS` sist i `setup.sql` ska vara kvar** (visar rättigheterna, men är ingen del av schemat).
-- [ ] **Bestämma hur resultaten i `queries.sql` ska visas** (fråga läraren: skärmdump, README eller kommentar).
-- [ ] **Commit + push** av dagens ändringar (rapportrutterna och formateringen).
+- [x] **ER-diagrammet som bild** (`docs/er-diagram-nordicrent.png`), behövs för demopunkt 1.
+- [x] **Testa sorteringen i GET-rapporter** (2026-11-19): två rapporter för artikel 5, "Second report" (10:20:15) kom före "First report" (10:20:04). Nyast först stämmer.
+- [x] **`SHOW GRANTS` sist i `setup.sql`:** behålls, med kommentaren "Shows that the privileges are correct."
+- [x] **Resultaten i `queries.sql`:** läraren kan köra filen själv. Transaktionerna har förväntade antal rader som kommentarer.
+- [x] **Commit + push** av rapportrutterna och formateringen.
 
 **Före inlämning (söndag 22/11):**
-- [ ] **Inlämningstexten med ER-diagrammet:** 3NF, relationer, MongoDB-val, transaktion, backend↔frontend (JOIN-exemplet).
-- [ ] **README, TODO-sektionerna:** Tech stack, Installation, Environment variables, Starting and stopping, Setting up and resetting, Example requests (curl), 3NF-beroenden, Backend and frontend, SQL queries, Transaction design, Error handling, Object-oriented design, Security.
-- [ ] **DATABASE_TESTS.md (valfritt):** ett DB-08 för MongoDB (POST 201/404/400 + GET), resultaten finns från 2026-11-16.
-- [ ] **ZIP eller GitHub-länk**, kolla att `.env` och `node_modules/` inte är med.
+- [x] **Inlämningstexten med ER-diagrammet:** 3NF, relationer, MongoDB-val, transaktion, backend↔frontend (JOIN-exemplet). Klart: `docs/er-diagram.md` har backend↔frontend-texten och länkar till README för 3NF, relationer, MongoDB-valet och transaktionen.
+- [x] **README, TODO-sektionerna:** Tech stack, Installation, Environment variables, Starting and stopping, Setting up and resetting, Example requests (curl), 3NF-beroenden, Backend and frontend, SQL queries, Transaction design, Error handling, Object-oriented design, Security. Alla ifyllda, inga TODO kvar (kontrollerat 2026-11-19).
+- [ ] **DB-08 för MongoDB (valfritt): sparat till API v2.** Kraven (3 databasprov) är uppfyllda med DB-01–03, plus extra DB-04–07.
+- [ ] **ZIP eller GitHub-länk**, kolla att `.env` och `node_modules/` inte är med. (Kontrollerat 2026-11-19: `.env`, `NOTES.md` och `node_modules/` finns inte i git.)
 
 ### Redovisningen enligt `oral_presentation_guide.md` (läst 2026-11-16)
 
@@ -60,10 +60,11 @@ Berätta också: hur backend och frontend hänger ihop (JOIN → JSON med namn i
 ## Roadmap (uppgiftens 7 steg)
 
 - [x] **Steg 1 – Planera datamodellen:** ER-diagram, samband, 3NF, vad som ska ligga i MongoDB
-  - [ ] Kvar: exportera ER-diagrammet till bild/PDF + skriva den korta texten (3NF, relationer, MongoDB-val, transaktion, backend↔frontend)
+  - [x] ER-diagrammet exporterat till bild (`docs/er-diagram-nordicrent.png`)
+  - [x] Den korta texten (3NF, relationer, MongoDB-val, transaktion, backend↔frontend): `docs/er-diagram.md` + README
 - [x] **Steg 2 – Implementera MySQL:** `setup.sql` + `seed.sql`, testa constraints och JOINs, installationen går att köra om (`setup.sql` → `seed.sql` återställer allt)
 - [x] **Steg 3 – Visa SQL-kunskaper:** `database/queries.sql` med 4 frågor (JOIN 3 tabeller, GROUP BY, 2 nästlade) + kommentarer om vad varje fråga svarar på
-  - [ ] Kvar: fråga läraren hur resultaten ska "visas" (skärmdump, text i README eller kommentar i filen?)
+  - [x] Resultaten: läraren kör filen själv (inte frågat, beslut 2026-11-19)
 - [x] **Steg 4 – Express-koppling:** servern startar, ansluter med `mysql2` som appanvändaren, alla fyra utrustningsrutterna klara med `?`-parametrar, validering och felhantering (2026-11-14)
   - [x] OOP-klassen `EquipmentRepository` klar 2026-11-14 kväll (all utrustnings-SQL flyttad dit)
 - [x] **Steg 5 – Bokningstransaktionen:** `POST /api/bookings` som riktig transaktion, visa att rollback tar bort alla delresultat (2026-11-15)
@@ -74,7 +75,7 @@ Berätta också: hur backend och frontend hänger ihop (JOIN → JSON med namn i
   - [x] Del 3: `POST /api/reports` (2026-11-16). `validReport` → `equipmentRepository.findById(req.body.equipmentId)` (ny metod, `status <> 'retired'`) → 404 om artikeln saknas eller är retired → `insertOne` → `201` + `report_id`. Testat: A 201, B (999) 404, C (12, retired) 404, D (`checklist: {}`) 400, E (`damageFlag: "yes"`) 400.
   - [x] Del 4: `GET /api/reports/equipment/:id` (2026-11-16). `positiveId` → `find({ equipmentId: Number(...) }).sort({ createdAt: -1 }).toArray()`. Testat: 1 → 200 med rapporten, 2 → 200 med `[]`, `abc` → 400.
   - [x] Småfix: bara en `console.error` kvar i `.catch` i `start()`
-- [ ] **Steg 7 – Kontroll och presentation:** tre databasprov i `DATABASE_TESTS.md` (klara), README med start/stopp och databasinställningar, träna på att förklara SQL- och dataval ← **NU**
+- [x] **Steg 7 – Kontroll och presentation:** tre databasprov i `DATABASE_TESTS.md`, README med start/stopp och databasinställningar, träna på att förklara SQL- och dataval. Redovisat 2026-11-19.
   - [x] Koden formaterad 2026-11-16 (indrag, semikolon, mellanslag), ingen logik ändrad
 
 ---
@@ -162,9 +163,9 @@ Berätta också: hur backend och frontend hänger ihop (JOIN → JSON med namn i
 
 ### Normalisering (3NF)
 - [x] Schemat är i 3NF
-- [ ] Kort text om 3NF, relationer, MongoDB-val och transaktion (lämnas in tillsammans med ER-diagrammet)
-- [ ] Förklara minst **ett eget normaliseringsval** (kandidater: prissnapshot på bokningsraden, eller totalpriset som beräknas i stället för att lagras)
-- [ ] Förklara **ett samband mellan backend och frontend** i texten till ER-diagrammet: JOIN som gör om `category_id`/`depot_id` till namn i JSON-svaret (se Öppna frågor, besvarat av läraren 2026-11-13)
+- [x] Kort text om 3NF, relationer, MongoDB-val och transaktion (lämnas in tillsammans med ER-diagrammet) Se `docs/er-diagram.md` + README.
+- [x] Förklara minst **ett eget normaliseringsval** (kandidater: prissnapshot på bokningsraden, eller totalpriset som beräknas i stället för att lagras) README: "Price stored on booking lines" + "Total price is calculated, not stored".
+- [x] Förklara **ett samband mellan backend och frontend** i texten till ER-diagrammet: JOIN som gör om `category_id`/`depot_id` till namn i JSON-svaret (se Öppna frågor, besvarat av läraren 2026-11-13) Klart i `docs/er-diagram.md` ("Connection between backend and frontend").
 
 ### Tabeller och villkor
 - [x] Lämpliga datatyper för varje kolumn
@@ -192,8 +193,8 @@ Berätta också: hur backend och frontend hänger ihop (JOIN → JSON med namn i
   - [x] minst 8 utrustningsposter (12)
   - [x] minst 3 kunder (8, varav 1 anonymiserad)
   - [x] minst 3 bokningar med bokningsrader (16 bokningar, 22 rader)
-- [x] Seed-filen går att **köra om** via återställning: `setup.sql` (gör `DROP DATABASE`) och sedan `seed.sql`. `seed.sql` två gånger i rad utan setup ger dubblett-fel (1062), eftersom id:na skrivs ut. Beskrivs i README (TODO "Setting up and resetting").
-- [ ] Seed-datan tas fram med AI-hjälp. Det redovisas i README, och jag ska förstå och kunna förklara datan.
+- [x] Seed-filen går att **köra om** via återställning: `setup.sql` (gör `DROP DATABASE`) och sedan `seed.sql`. `seed.sql` två gånger i rad utan setup ger dubblett-fel (1062), eftersom id:na skrivs ut. Beskrivs i README ("Setting up and resetting the database").
+- [x] Seed-datan tas fram med AI-hjälp. Det redovisas i README, och jag ska förstå och kunna förklara datan. (Står i README under "Setting up and resetting the database".)
 
 ### Säkerhet
 - [x] Skapa en applikationsanvändare med minsta möjliga behörighet
@@ -209,7 +210,7 @@ Berätta också: hur backend och frontend hänger ihop (JOIN → JSON med namn i
     - **Avvägning (säkerhet):** `'%'` = från vilken dator som helst, **inte** vem som helst. Lösenordet krävs fortfarande, och användaren har bara rättigheterna ovan. I en riktig installation: starkt lösenord och MySQL-porten bara lokalt (`-p 127.0.0.1:3306:3306`).
     - `127.0.0.1` i `.env` (`DB_HOST`) och i Database Client är fortfarande rätt: det är adressen man ansluter **till**. `@'…'` i `CREATE USER` är varifrån man får komma.
     - Lärarens `school_api` (`'app_user'@'127.0.0.1'`) har samma problem i min miljö.
-    - [x] Nämnt i README ("Database settings", 2026-11-14). Kvar: nämna vid redovisningen.
+    - [x] Nämnt i README ("Database settings", 2026-11-14) och vid redovisningen 2026-11-19.
 - [x] Appen ansluter aldrig som root (`.env` → `nordicrent_app_user`)
 - [x] `?`-parametrar för **alla** SQL-värden som kommer från API-anrop (alla rutter klara 2026-11-16)
 
@@ -311,13 +312,14 @@ Körs i MySQL och resultatet visas. De behöver **inga** egna API-rutter.
 
 ## Lämna in
 
-- [ ] Källkoden (vidareutvecklas till API v2 i nästa kurs)
-- [ ] `database/setup.sql`, `database/seed.sql`, `database/queries.sql`
-- [ ] ER-diagram (bild/PDF) + kort text om 3NF, relationer, MongoDB-val och transaktion
+- [x] Källkoden (vidareutvecklas till API v2 i nästa kurs)
+- [x] `database/setup.sql`, `database/seed.sql`, `database/queries.sql`
+- [x] ER-diagram (bild: `docs/er-diagram-nordicrent.png`)
+- [x] Kort text om 3NF, relationer, MongoDB-val och transaktion: `docs/er-diagram.md` + README
 - [x] `.env.example` (finns, med övningslösenordet `12345`, se Säkerhet)
-- [ ] `README.md` med installation, start/stopp och databasinställningar ("Database settings" klar 2026-11-14, resten TODO)
+- [x] `README.md` med installation, start/stopp och databasinställningar (alla sektioner klara)
 - [x] `DATABASE_TESTS.md` med tre körda databasprov inklusive faktiskt resultat (DB-01–03 klara + extra DB-04–07)
-- [ ] Muntlig redovisning enligt `oral_presentation_guide.md` (läst 2026-11-16, se [Kvar att göra](#kvar-att-göra))
+- [x] Muntlig redovisning enligt `oral_presentation_guide.md` (2026-11-19, gick bra)
 
 ---
 
